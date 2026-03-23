@@ -11,7 +11,6 @@
 
   <!-- Stellar SDK -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/12.3.0/stellar-sdk.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-freighter-api/6.0.1/index.min.js"></script>
   <script type="importmap">
     {
       "imports": {
@@ -19,11 +18,7 @@
       }
     }
   </script>
-  <script type="module">
-    import * as freighterApi from '@stellar/freighter-api';
-    window.freighterApi = freighterApi;
-    console.log('Freighter API loaded', freighterApi);
-  </script>
+
   <style>
     :root {
       --bg-primary:   #0a0b0f;
@@ -540,33 +535,36 @@
 
     async function connectWallet() {
       try {
-        if (typeof window.freighterApi === 'undefined') {
-          log('error', 'Freighter не обнаружен. Установите расширение: https://freighter.app');
-          alert('Установите расширение Freighter для браузера!');
+        if (!window.freighterApi) {
+          log('error', 'Freighter не найден');
+          alert('Установите Freighter!');
           return;
         }
 
         const freighter = window.freighterApi;
-        const { isConnected } = await freighter.isConnected();
-        if (!isConnected) {
-          log('error', 'Freighter не подключён.');
-          return;
-        }
 
-        const { address } = await freighter.getAddress();
+        // 🔥 ВАЖНО: запрос доступа
+        await freighter.requestAccess();
+
+        const address = await freighter.getAddress();
+
         if (!address) {
-          log('error', 'Не удалось получить адрес из Freighter.');
+          log('error', 'Не удалось получить адрес');
           return;
         }
 
         userAddress = address;
+
         const short = address.slice(0, 6) + '…' + address.slice(-4);
+
         document.getElementById('connectBtn').textContent = short;
         document.getElementById('connectBtn').classList.add('connected');
         document.getElementById('swapBtn').disabled = false;
 
         log('success', `Кошелёк подключён: ${short}`);
+
         await refreshBalances();
+
       } catch (err) {
         log('error', `Ошибка подключения: ${err.message || err}`);
       }
