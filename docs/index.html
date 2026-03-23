@@ -748,13 +748,21 @@
       const decIn  = dir === 'A' ? CONFIG.decimalsA : CONFIG.decimalsB;
       const decOut = dir === 'A' ? CONFIG.decimalsB : CONFIG.decimalsA;
       const method = dir === 'A' ? 'swap_a_to_b' : 'swap_b_to_a';
+      const tokenIn = dir === 'A' ? CONFIG.tokenA : CONFIG.tokenB;
       const amt    = toAmount(amountRaw, decIn);
       const minOut = toAmount(minOutRaw, decOut);
       const addr   = new StellarSdk.Address(userAddress).toScVal();
+      const poolAddr = new StellarSdk.Address(CONFIG.pool).toScVal();
 
       try {
-        log('info', `Swap: отдаём ${amountRaw} ${dir === 'A' ? 'NT' : 'XLM'}…`);
-        await signAndSend(CONFIG.pool, method, [addr, i128ScVal(amt), i128ScVal(minOut)]);
+        // Approve входящий токен
+        log('info', 'Approve для свопа…');
+        await signAndSend(tokenIn, 'approve', [
+          addr, poolAddr, i128ScVal(amt),
+          StellarSdk.nativeToScVal(9999999, { type: 'u32' })
+        ]);
+
+        log('info', `Swap: отдаём ${amountRaw} ${dir === 'A' ? 'NT' : 'XLM'}…`);        await signAndSend(CONFIG.pool, method, [addr, i128ScVal(amt), i128ScVal(minOut)]);
         log('success', 'Swap выполнен!');
         await refreshBalances();
       } catch (err) {
@@ -775,8 +783,29 @@
       const amtA = toAmount(aRaw, CONFIG.decimalsA);
       const amtB = toAmount(bRaw, CONFIG.decimalsB);
       const addr = new StellarSdk.Address(userAddress).toScVal();
+      const poolAddr = new StellarSdk.Address(CONFIG.pool).toScVal();
+      const expLedger = 9999999;
 
       try {
+        // 1. Approve токен A (NT) для пула
+        log('info', 'Approve NT для пула…');
+        await signAndSend(CONFIG.tokenA, 'approve', [
+          addr,                          // from
+          poolAddr,                      // spender (пул)
+          i128ScVal(amtA),              // amount
+          StellarSdk.nativeToScVal(expLedger, { type: 'u32' })  // expiration_ledger
+        ]);
+
+        // 2. Approve токен B (XLM) для пула
+        log('info', 'Approve XLM для пула…');
+        await signAndSend(CONFIG.tokenB, 'approve', [
+          addr,
+          poolAddr,
+          i128ScVal(amtB),
+          StellarSdk.nativeToScVal(expLedger, { type: 'u32' })
+        ]);
+
+        // 3. Теперь добавляем ликвидность
         log('info', `Добавляем ликвидность: ${aRaw} NT + ${bRaw} XLM…`);
         await signAndSend(CONFIG.pool, 'add_liquidity', [addr, i128ScVal(amtA), i128ScVal(amtB)]);
         log('success', 'Ликвидность добавлена!');
