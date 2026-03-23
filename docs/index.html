@@ -544,16 +544,14 @@
       try {
         if (!window.freighterApi) {
           log('error', 'Freighter не найден');
-          alert('Установите Freighter!');
           return;
         }
 
         const freighter = window.freighterApi;
-
-        // 🔥 ВАЖНО: запрос доступа
         await freighter.requestAccess();
 
-        const address = await freighter.getAddress();
+        const result = await freighter.getAddress();
+        const address = typeof result === 'string' ? result : result.address;
 
         if (!address) {
           log('error', 'Не удалось получить адрес');
