@@ -3,13 +3,15 @@
 <head>
 
   <meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline' 'unsafe-eval';
-  style-src 'self' https://fonts.googleapis.com 'unsafe-inline';
-  font-src 'self' https://fonts.gstatic.com;
-  connect-src 'self' https://soroban-testnet.stellar.org https://*.stellar.org;
-  img-src 'self' data:;
+  default-src *;
+  script-src * 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com;
+  style-src * 'unsafe-inline' https://fonts.googleapis.com;
+  font-src * https://fonts.gstatic.com;
+  connect-src * https://soroban-testnet.stellar.org;
+  img-src * data:;
+  frame-src 'none';
 ">
+
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NabokaDEX — Liquidity Pool</title>
@@ -19,7 +21,7 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Stellar SDK -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/12.3.0/stellar-sdk.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/12.3.0/stellar-sdk.min.js" resource="unsafe-inline"></script>
   <script type="importmap">
     {
       "imports": {
