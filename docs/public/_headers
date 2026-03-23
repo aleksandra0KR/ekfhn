@@ -1,0 +1,7 @@
+Content-Security-Policy: default-src *;
+script-src * 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com;
+style-src * 'unsafe-inline' https://fonts.googleapis.com;
+font-src * https://fonts.gstatic.com;
+connect-src * https://soroban-testnet.stellar.org;
+img-src * data:;
+frame-src 'none';
