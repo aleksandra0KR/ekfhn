@@ -1,0 +1,7 @@
+target/
+.soroban/
+.contract-addresses.env
+*.swp
+*.swo
+.DS_Store
+node_modules/
