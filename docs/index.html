@@ -3,14 +3,12 @@
 <head>
 
   <meta http-equiv="Content-Security-Policy" content="
-  default-src * 'unsafe-inline' 'unsafe-eval';
-  script-src * 'unsafe-inline' 'unsafe-eval';
-  style-src * 'unsafe-inline';
-  font-src *;
-  connect-src *;
-  img-src * data:;
-  media-src *;
-  frame-src *;
+  default-src 'self';
+  script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline' 'unsafe-eval';
+  style-src 'self' https://fonts.googleapis.com 'unsafe-inline';
+  font-src 'self' https://fonts.gstatic.com;
+  connect-src 'self' https://soroban-testnet.stellar.org https://*.stellar.org;
+  img-src 'self' data:;
 ">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
