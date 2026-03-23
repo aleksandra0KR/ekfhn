@@ -659,34 +659,35 @@
         fee: '10000000',
         networkPassphrase: CONFIG.networkPassphrase,
       })
-        .addOperation(contract.call(method, ...args))
-        .setTimeout(60)
-        .build();
+              .addOperation(contract.call(method, ...args))
+              .setTimeout(60)
+              .build();
 
-      // Симуляция
       const sim = await server.simulateTransaction(tx);
       if (StellarSdk.SorobanRpc.Api.isSimulationError(sim)) {
         throw new Error(sim.error || 'Simulation failed');
       }
       tx = StellarSdk.SorobanRpc.assembleTransaction(tx, sim).build();
 
-      // Подпись через Freighter
-      const { signedTxXdr } = await window.freighterApi.signTransaction(
-        tx.toXDR(),
-        { networkPassphrase: CONFIG.networkPassphrase }
+      // Подпись через Freighter — ФИКС: обрабатываем оба формата ответа
+      const signResult = await window.freighterApi.signTransaction(
+              tx.toXDR(),
+              { networkPassphrase: CONFIG.networkPassphrase }
       );
+      const signedXdr = typeof signResult === 'string'
+              ? signResult
+              : signResult.signedTxXdr;
+
       const signed = StellarSdk.TransactionBuilder.fromXDR(
-        signedTxXdr,
-        CONFIG.networkPassphrase
+              signedXdr,
+              CONFIG.networkPassphrase
       );
 
-      // Отправка
       const response = await server.sendTransaction(signed);
       if (response.status === 'ERROR') {
         throw new Error('Transaction submission failed');
       }
 
-      // Ожидание подтверждения
       let result;
       const start = Date.now();
       while (Date.now() - start < 30000) {
