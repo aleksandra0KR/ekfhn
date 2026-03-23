@@ -1,12 +1,17 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self';
-                 script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com 'unsafe-inline';
-                 style-src 'self' 'unsafe-inline';
-                 font-src 'self' https://fonts.gstatic.com;
-                 connect-src https://soroban-testnet.stellar.org;">
+
+  <meta http-equiv="Content-Security-Policy" content="
+  default-src * 'unsafe-inline' 'unsafe-eval';
+  script-src * 'unsafe-inline' 'unsafe-eval';
+  style-src * 'unsafe-inline';
+  font-src *;
+  connect-src *;
+  img-src * data:;
+  media-src *;
+  frame-src *;
+">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NabokaDEX — Liquidity Pool</title>
