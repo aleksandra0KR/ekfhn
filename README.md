@@ -238,7 +238,7 @@ git commit -m "NabokaDEX: contracts + frontend"
 git push origin main
 
 # В настройках GitHub репозитория:
-# Settings → Pages → Source: Deploy from branch → /frontend (или /docs)
+# Settings → Pages → Source: Deploy from branch → /docs (или /docs)
 ```
 
 Либо через **Render.com** (Static Site):

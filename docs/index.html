@@ -523,13 +523,17 @@
     // ╚═══════════════════════════════════════════════════════════════╝
 
     function init() {
-      if (typeof StellarSdk === 'undefined') {
-        log('error', 'Stellar SDK не загружен!');
-        return;
-      }
       server = new StellarSdk.SorobanRpc.Server(CONFIG.rpcUrl);
       setupTabs();
-      log('info', 'Приложение загружено. Подключите кошелёк Freighter.');
+
+      if (window.freighterApi) {
+        log('info', 'Приложение загружено. Подключите кошелёк Freighter.');
+      } else {
+        window.addEventListener('freighter-ready', () => {
+          log('info', 'Freighter API загружен. Подключите кошелёк.');
+        });
+        log('info', 'Загрузка Freighter API…');
+      }
     }
 
     // ╔═══════════════════════════════════════════════════════════════╗
@@ -538,17 +542,8 @@
 
     async function connectWallet() {
       try {
-        // Гарантируем что server создан
-        if (!server) {
-          server = new StellarSdk.SorobanRpc.Server(CONFIG.rpcUrl);
-        }
-
-        for (let i = 0; i < 10 && !window.freighterApi; i++) {
-          await new Promise(r => setTimeout(r, 300));
-        }
-
         if (!window.freighterApi) {
-          log('error', 'Freighter не найден.');
+          log('error', 'Freighter не найден');
           return;
         }
 
@@ -564,6 +559,7 @@
         }
 
         userAddress = address;
+
         const short = address.slice(0, 6) + '…' + address.slice(-4);
 
         document.getElementById('connectBtn').textContent = short;

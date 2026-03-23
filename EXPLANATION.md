@@ -221,7 +221,7 @@ git push -u origin main
 # 3. В Settings → Pages:
 #    Source: Deploy from a branch
 #    Branch: main
-#    Folder: /frontend (или переместите index.html в /docs)
+#    Folder: /docs (или переместите index.html в /docs)
 ```
 
 Если используете `/frontend` как подпапку, может потребоваться перенести index.html в корень репозитория или в `/docs`.
