@@ -779,7 +779,7 @@
       log('info', 'Approve для свопа…');
       await signAndSend(tokenIn, 'approve', [
         addr, poolAddr, i128ScVal(amt),
-        StellarSdk.nativeToScVal(9999999, { type: 'u32' })
+        StellarSdk.nativeToScVal(3100000, { type: 'u32' })
       ]);
 
       log('info', `Swap: отдаём ${amountRaw} ${dir === 'A' ? 'NT' : 'XLM'}…`);        await signAndSend(CONFIG.pool, method, [addr, i128ScVal(amt), i128ScVal(minOut)]);
