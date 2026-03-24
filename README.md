@@ -7,13 +7,15 @@
 
 ## Состав группы
 
-| ФИО | Публичный адрес |
-|-----|-----------------|
-| Набока ... | `G...` |
-| ... | `G...` |
+| ФИО         | Публичный адрес |
+|-------------|-----------------|
+| Крючкова АВ | |
+| Крамской ВВ | |
+| Васильев КВ |  |
+|  | `GAO5CFERZZBT3QYPJVDCDNU3FAQV36DBVTJB2A5SVC467MOWPNIC4HUB` |
+|  | `GB3GJXJTWWMD74JZAX2CEJ5QRA7TKPAW5BSOPUBJR7B3VMUBALORT6NO` |
 
-**ChainId**: Stellar Testnet (`Test SDF Network ; September 2015`)
-
+**ChainId**: Stellar Testnet
 ---
 
 ## Описание проекта
@@ -27,40 +29,7 @@
 - **Добавление/вывод ликвидности** в пул NT/XLM
 - **Swap** — обмен NT ↔ XLM через AMM-пул
 - **Котировки** — предварительный расчёт получаемой суммы (read-only)
-- **Slippage protection** — защита от проскальзывания цены
 
----
-
-## Архитектура
-
-```
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  NabokaToken │    │   LP Token   │    │   Native XLM │
-│  (Token A)   │    │   (NLP)      │    │   SAC (B)    │
-│  ERC-20 like │    │  mint/burn   │    │  Stellar     │
-└──────┬───────┘    └──────┬───────┘    └──────┬───────┘
-       │                   │                   │
-       └───────────┬───────┘───────────────────┘
-                   │
-           ┌───────▼────────┐
-           │ Liquidity Pool │
-           │                │
-           │ • add_liquidity│
-           │ • remove_liq.  │
-           │ • swap_a_to_b  │
-           │ • swap_b_to_a  │
-           │ • quote_*      │
-           │ • get_reserves │
-           └───────┬────────┘
-                   │
-           ┌───────▼────────┐
-           │   Frontend     │
-           │ (index.html)   │
-           │                │
-           │ Freighter      │
-           │ + stellar-sdk  │
-           └────────────────┘
-```
 
 ### Смарт-контракты (Soroban / Rust):
 
@@ -88,38 +57,6 @@ amount_out = (reserve_out × amount_in) / (reserve_in + amount_in)
 
 ---
 
-## Структура проекта
-
-```
-stellar-dex/
-├── Cargo.toml                          # Workspace
-├── deploy.sh                           # Скрипт деплоя
-├── README.md
-│
-├── contracts/
-│   ├── naboka-token/                   # Токен из ЛР-2
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       └── test.rs
-│   │
-│   ├── lp-token/                       # LP-токен
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       └── test.rs
-│   │
-│   └── liquidity-pool/                 # Контракт пула (AMM)
-│       ├── Cargo.toml
-│       └── src/
-│           ├── lib.rs
-│           └── test.rs
-│
-└── frontend/
-    └── index.html                      # dApp (SPA)
-```
-
----
 
 ## Пошаговая инструкция
 
@@ -128,7 +65,7 @@ stellar-dex/
 ```bash
 # 1. Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup target add wasm32-unknown-unknown
+rustup target add wasm32-none
 
 # 2. Stellar CLI
 cargo install --locked stellar-cli
@@ -140,16 +77,16 @@ cargo install --locked stellar-cli
 ### Шаг 1. Клонирование и сборка
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/aleksandra0KR/ekfhn/
 cd stellar-dex
 stellar contract build
 ```
 
 Это скомпилирует все три контракта в WASM:
 ```
-target/wasm32-unknown-unknown/release/naboka_token.wasm
-target/wasm32-unknown-unknown/release/lp_token.wasm
-target/wasm32-unknown-unknown/release/liquidity_pool.wasm
+target/wasm32-none/release/naboka_token.wasm
+target/wasm32-none/release/lp_token.wasm
+target/wasm32-none/release/liquidity_pool.wasm
 ```
 
 ### Шаг 2. Настройка аккаунта
@@ -166,15 +103,6 @@ stellar keys address deployer
 ```
 
 ### Шаг 3. Деплой контрактов
-
-Можно использовать готовый скрипт:
-
-```bash
-chmod +x deploy.sh
-./deploy.sh
-```
-
-Или вручную:
 
 ```bash
 DEPLOYER=$(stellar keys address deployer)
@@ -214,84 +142,41 @@ stellar contract invoke --id $TOKEN_A --source deployer --network testnet \
 
 Откройте `frontend/index.html` и вставьте адреса контрактов в объект `CONFIG`:
 
-```javascript
-const CONFIG = {
-  network: 'testnet',
-  networkPassphrase: 'Test SDF Network ; September 2015',
-  rpcUrl: 'https://soroban-testnet.stellar.org',
-  tokenA:  '<ВСТАВЬТЕ_АДРЕС_TOKEN_A>',
-  tokenB:  '<ВСТАВЬТЕ_АДРЕС_TOKEN_B>',
-  lpToken: '<ВСТАВЬТЕ_АДРЕС_LP_TOKEN>',
-  pool:    '<ВСТАВЬТЕ_АДРЕС_POOL>',
-  decimalsA: 7,
-  decimalsB: 7,
-  decimalsLP: 7,
-};
-```
-
 ### Шаг 5. Деплой фронтенда (GitHub Pages)
 
-```bash
-# В корне репозитория:
-git add .
-git commit -m "NabokaDEX: contracts + frontend"
-git push origin main
+https://aleksandra0kr.github.io/ekfhn/
 
-# В настройках GitHub репозитория:
-# Settings → Pages → Source: Deploy from branch → /docs (или /docs)
-```
 
-Либо через **Render.com** (Static Site):
-1. Подключите GitHub-репозиторий
-2. Build Command: оставьте пустым
-3. Publish Directory: `frontend`
-
-### Шаг 6. Тестирование
-
-1. Откройте dApp в браузере
-2. Установите и настройте **Freighter** на Testnet
-3. Нажмите «Подключить Freighter»
-4. Добавьте ликвидность (например, 1000 NT + 100 XLM)
-5. Выполните swap NT → XLM
-6. Проверьте обновление балансов и резервов
-
----
-
-## Верифицированные контракты
 
 | Контракт | Адрес |
 |----------|-------|
-| NabokaToken | `C...` |
-| LP Token | `C...` |
-| Liquidity Pool | `C...` |
-
-**Обозреватель**: https://stellar.expert/explorer/testnet
-
----
-
-## Ссылка на приложение
-
-🔗 **[NabokaDEX Live](https://<username>.github.io/stellar-dex/)**
+| LP Token | https://stellar.expert/explorer/testnet/search?term=CCHWMIYAUZGCQRG6GBKGCBK4EUQTNXUAU3GTPM5XCABB7Q4Y7D7BLTMJ |
+| Liquidity Pool | https://stellar.expert/explorer/testnet/contract/CBZ4B6YIHCOXPQFGWMHCANUDUOW6I6L7OFCYYF352ILNK6MBM5MZTLH3 |
 
 ---
 
 ## Скриншоты
 
-*(добавьте скриншоты работающего приложения)*
-
 1. Подключение кошелька
-2. Добавление ликвидности
+  
+![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/1.png?raw=true)
+
+3. Добавление ликвидности
+   
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/2.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/3.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/4.png?raw=true)
+
 3. Выполнение swap
-4. Перевод токенов
-5. Обновление балансов
+   
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/5.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/6.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/7.png?raw=true)
 
----
+6. Перевод токенов
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/8.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/stellar/blob/master/img/9.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/10.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/11.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/12.png?raw=true)
 
-## Технологии
-
-- **Stellar / Soroban** — блокчейн и смарт-контракты
-- **Rust** — язык контрактов
-- **soroban-sdk 22** — SDK для Soroban
-- **Freighter** — кошелёк Stellar для браузера
-- **stellar-sdk.js** — JavaScript SDK для взаимодействия
-- **GitHub Pages** — хостинг фронтенда
