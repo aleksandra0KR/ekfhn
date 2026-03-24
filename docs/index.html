@@ -653,6 +653,8 @@
   // ╚═══════════════════════════════════════════════════════════════╝
 
   async function signAndSend(contractId, method, args = []) {
+    console.log('=== signAndSend:', method, '===');
+
     const contract = new StellarSdk.Contract(contractId);
     const account = await server.getAccount(userAddress);
     let tx = new StellarSdk.TransactionBuilder(account, {
@@ -669,19 +671,25 @@
     }
     tx = StellarSdk.SorobanRpc.assembleTransaction(tx, sim).build();
 
-    // Подпись через Freighter — ФИКС: обрабатываем оба формата ответа
-    const signResult = await window.freighterApi.signTransaction(
-            tx.toEnvelope().toXDR('base64'),
-            { networkPassphrase: CONFIG.networkPassphrase }
-    );
+    // Получаем XDR в base64
+    const xdr = tx.toXDR();
+    console.log('XDR type:', typeof xdr);
+    console.log('XDR preview:', typeof xdr === 'string' ? xdr.substring(0, 40) : 'NOT STRING');
+
+    // Если toXDR() вернул Buffer/Uint8Array, конвертируем в base64
+    const xdrBase64 = typeof xdr === 'string' ? xdr : btoa(String.fromCharCode(...new Uint8Array(xdr)));
+    console.log('XDR base64:', xdrBase64.substring(0, 40));
+
+    const signResult = await window.freighterApi.signTransaction(xdrBase64, {
+      networkPassphrase: CONFIG.networkPassphrase,
+    });
+    console.log('Sign result:', JSON.stringify(signResult).substring(0, 100));
+
     const signedXdr = typeof signResult === 'string'
             ? signResult
-            : signResult.signedTxXdr;
+            : (signResult.signedTxXdr || signResult.xdr);
 
-    const signed = StellarSdk.TransactionBuilder.fromXDR(
-            signedXdr,
-            CONFIG.networkPassphrase
-    );
+    const signed = StellarSdk.TransactionBuilder.fromXDR(signedXdr, CONFIG.networkPassphrase);
 
     const response = await server.sendTransaction(signed);
     if (response.status === 'ERROR') {
