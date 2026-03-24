@@ -586,20 +586,26 @@
     }
 
     async function callContract(contractId, method, args = []) {
+      if (!userAddress) {
+        throw new Error('Wallet not connected');
+      }
+
       const contract = new StellarSdk.Contract(contractId);
       const account = await server.getAccount(userAddress);
-      const tx = new StellarSdk.TransactionBuilder(account, {
-        fee: '100',
+
+      let tx = new StellarSdk.TransactionBuilder(account, {
+        fee: '10000000',
         networkPassphrase: CONFIG.networkPassphrase,
       })
-        .addOperation(contract.call(method, ...args))
-        .setTimeout(30)
-        .build();
+              .addOperation(contract.call(method, ...args))
+              .setTimeout(60)
+              .build();
 
       const sim = await server.simulateTransaction(tx);
       if (StellarSdk.SorobanRpc.Api.isSimulationError(sim)) {
         throw new Error(sim.error || 'simulation failed');
       }
+
       return sim.result?.retval;
     }
 
@@ -612,13 +618,13 @@
         // Баланс токена A
         const balA = await callContract(CONFIG.tokenA, 'balance', [addrScVal]);
         document.getElementById('balanceA').textContent =
-          toUnits(StellarSdk.scValToNative(balA), CONFIG.decimalsA);
+                toUnits(StellarSdk.scValToNative(balA), CONFIG.decimalsA);
 
         // Баланс токена B (XLM через SAC)
         try {
           const balB = await callContract(CONFIG.tokenB, 'balance', [addrScVal]);
           document.getElementById('balanceB').textContent =
-            toUnits(StellarSdk.scValToNative(balB), CONFIG.decimalsB);
+                  toUnits(StellarSdk.scValToNative(balB), CONFIG.decimalsB);
         } catch {
           // Если SAC не развёрнут, показываем нативный баланс
           const acct = await server.getAccount(userAddress);
@@ -629,32 +635,38 @@
         // LP-баланс
         const balLP = await callContract(CONFIG.lpToken, 'balance', [addrScVal]);
         document.getElementById('balanceLP').textContent =
-          toUnits(StellarSdk.scValToNative(balLP), CONFIG.decimalsLP);
+                toUnits(StellarSdk.scValToNative(balLP), CONFIG.decimalsLP);
 
         // Резервы пула
         const reserves = await callContract(CONFIG.pool, 'get_reserves', []);
         if (reserves) {
           const [rA, rB] = StellarSdk.scValToNative(reserves);
           document.getElementById('reserves').textContent =
-            `${toUnits(rA, CONFIG.decimalsA)} / ${toUnits(rB, CONFIG.decimalsB)}`;
+                  `${toUnits(rA, CONFIG.decimalsA)} / ${toUnits(rB, CONFIG.decimalsB)}`;
         }
 
         // Общее число свопов
         const swaps = await callContract(CONFIG.pool, 'total_swaps', []);
         document.getElementById('totalSwaps').textContent =
-          swaps != null ? StellarSdk.scValToNative(swaps) : '—';
+                swaps != null ? StellarSdk.scValToNative(swaps) : '—';
       } catch (err) {
         log('error', `Не удалось обновить балансы: ${err.message}`);
       }
     }
 
     // ╔═══════════════════════════════════════════════════════════════╗
-    // ║  ПОДПИСАНИЕ И ОТПРАВКА ТРАНЗАКЦИЙ                            ║
+    // ║  ПОДПИСАНИЕ И ОТПРАВКА ТРАНЗАКЦИЙ — ИСПРАВЛЕННАЯ ВЕРСИЯ     ║
     // ╚═══════════════════════════════════════════════════════════════╝
 
     async function signAndSend(contractId, method, args = []) {
+      if (!userAddress) {
+        throw new Error('Wallet not connected');
+      }
+
       const contract = new StellarSdk.Contract(contractId);
       const account = await server.getAccount(userAddress);
+
+      // Строим транзакцию
       let tx = new StellarSdk.TransactionBuilder(account, {
         fee: '10000000',
         networkPassphrase: CONFIG.networkPassphrase,
@@ -663,37 +675,46 @@
               .setTimeout(60)
               .build();
 
+      // Симулируем транзакцию
       const sim = await server.simulateTransaction(tx);
       if (StellarSdk.SorobanRpc.Api.isSimulationError(sim)) {
         throw new Error(sim.error || 'Simulation failed');
       }
+
+      // Ассемблируем транзакцию с результатами симуляции
       tx = StellarSdk.SorobanRpc.assembleTransaction(tx, sim).build();
 
-      // Подпись через Freighter — ФИКС: обрабатываем оба формата ответа
-      const signResult = await window.freighterApi.signTransaction(
+      // Подписываем через Freighter
+      const signedXdr = await window.freighterApi.signTransaction(
               tx.toXDR(),
               { networkPassphrase: CONFIG.networkPassphrase }
       );
-      const signedXdr = typeof signResult === 'string'
-              ? signResult
-              : signResult.signedTxXdr;
 
-      const signed = StellarSdk.TransactionBuilder.fromXDR(
-              signedXdr,
+      // Обрабатываем возможные форматы ответа
+      const finalXdr = typeof signedXdr === 'string' ? signedXdr : signedXdr.signedTxXdr;
+
+      const signedTx = StellarSdk.TransactionBuilder.fromXDR(
+              finalXdr,
               CONFIG.networkPassphrase
       );
 
-      const response = await server.sendTransaction(signed);
+      // Отправляем транзакцию
+      const response = await server.sendTransaction(signedTx);
       if (response.status === 'ERROR') {
-        throw new Error('Transaction submission failed');
+        throw new Error('Transaction submission failed: ' + (response.errorResultXdr || 'Unknown error'));
       }
 
+      // Ждём подтверждения
       let result;
       const start = Date.now();
       while (Date.now() - start < 30000) {
         result = await server.getTransaction(response.hash);
-        if (result.status === 'SUCCESS') return result;
-        if (result.status === 'FAILED') throw new Error('Transaction failed on-chain');
+        if (result.status === 'SUCCESS') {
+          return result;
+        }
+        if (result.status === 'FAILED') {
+          throw new Error('Transaction failed on-chain');
+        }
         await new Promise(r => setTimeout(r, 2000));
       }
       throw new Error('Transaction timeout');
@@ -704,6 +725,7 @@
     }
 
     function i128ScVal(val) {
+      // Преобразуем BigInt в i128 ScVal
       return StellarSdk.nativeToScVal(val, { type: 'i128' });
     }
 
@@ -718,16 +740,16 @@
         return;
       }
       const dir = document.getElementById('swapFrom').value;
-      const decIn  = dir === 'A' ? CONFIG.decimalsA : CONFIG.decimalsB;
       const decOut = dir === 'A' ? CONFIG.decimalsB : CONFIG.decimalsA;
       const method = dir === 'A' ? 'quote_a_to_b' : 'quote_b_to_a';
 
       try {
-        const amt = toAmount(amountRaw, decIn);
+        const amt = toAmount(amountRaw, dir === 'A' ? CONFIG.decimalsA : CONFIG.decimalsB);
         const result = await callContract(CONFIG.pool, method, [i128ScVal(amt)]);
         const out = StellarSdk.scValToNative(result);
         document.getElementById('quoteOut').textContent = toUnits(out, decOut);
-      } catch {
+      } catch (err) {
+        console.error('Quote error:', err);
         document.getElementById('quoteOut').textContent = '?';
       }
       document.getElementById('quoteSymbol').textContent = dir === 'A' ? 'XLM' : 'NT';
@@ -740,34 +762,61 @@
     }
 
     async function doSwap() {
-      if (!userAddress) return;
+      if (!userAddress) {
+        log('error', 'Сначала подключите кошелёк');
+        return;
+      }
+
       const dir = document.getElementById('swapFrom').value;
       const amountRaw = document.getElementById('swapAmountIn').value;
       const minOutRaw = document.getElementById('swapMinOut').value || '0';
-      if (!amountRaw || parseFloat(amountRaw) <= 0) return;
 
-      const decIn  = dir === 'A' ? CONFIG.decimalsA : CONFIG.decimalsB;
+      if (!amountRaw || parseFloat(amountRaw) <= 0) {
+        log('error', 'Введите сумму для обмена');
+        return;
+      }
+
+      const decIn = dir === 'A' ? CONFIG.decimalsA : CONFIG.decimalsB;
       const decOut = dir === 'A' ? CONFIG.decimalsB : CONFIG.decimalsA;
       const method = dir === 'A' ? 'swap_a_to_b' : 'swap_b_to_a';
       const tokenIn = dir === 'A' ? CONFIG.tokenA : CONFIG.tokenB;
-      const amt    = toAmount(amountRaw, decIn);
+      const amt = toAmount(amountRaw, decIn);
       const minOut = toAmount(minOutRaw, decOut);
-      const addr   = new StellarSdk.Address(userAddress).toScVal();
-      const poolAddr = new StellarSdk.Address(CONFIG.pool).toScVal();
+      const addr = new StellarSdk.Address(userAddress);
+      const addrScVal = addr.toScVal();
 
       try {
-        // Approve входящий токен
-        log('info', 'Approve для свопа…');
+        log('info', `Approve для свопа (${amountRaw} ${dir === 'A' ? 'NT' : 'XLM'})...`);
+
+        // Approve входящий токен для пула
+        const poolAddr = new StellarSdk.Address(CONFIG.pool);
+        const poolScVal = poolAddr.toScVal();
+
         await signAndSend(tokenIn, 'approve', [
-          addr, poolAddr, i128ScVal(amt),
+          addrScVal,
+          poolScVal,
+          i128ScVal(amt),
           StellarSdk.nativeToScVal(9999999, { type: 'u32' })
         ]);
 
-        log('info', `Swap: отдаём ${amountRaw} ${dir === 'A' ? 'NT' : 'XLM'}…`);        await signAndSend(CONFIG.pool, method, [addr, i128ScVal(amt), i128ScVal(minOut)]);
-        log('success', 'Swap выполнен!');
+        log('info', `Выполняем swap...`);
+        const result = await signAndSend(CONFIG.pool, method, [
+          addrScVal,
+          i128ScVal(amt),
+          i128ScVal(minOut)
+        ]);
+
+        log('success', 'Swap выполнен успешно!');
         await refreshBalances();
+
+        // Очищаем поля
+        document.getElementById('swapAmountIn').value = '';
+        document.getElementById('swapMinOut').value = '';
+        updateQuote();
+
       } catch (err) {
         log('error', `Swap ошибка: ${err.message}`);
+        console.error(err);
       }
     }
 
@@ -776,61 +825,99 @@
     // ╚═══════════════════════════════════════════════════════════════╝
 
     async function addLiquidity() {
-      if (!userAddress) return;
+      if (!userAddress) {
+        log('error', 'Сначала подключите кошелёк');
+        return;
+      }
+
       const aRaw = document.getElementById('liqAmountA').value;
       const bRaw = document.getElementById('liqAmountB').value;
-      if (!aRaw || !bRaw || parseFloat(aRaw) <= 0 || parseFloat(bRaw) <= 0) return;
+
+      if (!aRaw || !bRaw || parseFloat(aRaw) <= 0 || parseFloat(bRaw) <= 0) {
+        log('error', 'Введите корректные суммы для добавления ликвидности');
+        return;
+      }
 
       const amtA = toAmount(aRaw, CONFIG.decimalsA);
       const amtB = toAmount(bRaw, CONFIG.decimalsB);
-      const addr = new StellarSdk.Address(userAddress).toScVal();
-      const poolAddr = new StellarSdk.Address(CONFIG.pool).toScVal();
+      const addr = new StellarSdk.Address(userAddress);
+      const addrScVal = addr.toScVal();
+      const poolAddr = new StellarSdk.Address(CONFIG.pool);
+      const poolScVal = poolAddr.toScVal();
       const expLedger = 9999999;
 
       try {
         // 1. Approve токен A (NT) для пула
-        log('info', 'Approve NT для пула…');
+        log('info', 'Approve NT для пула...');
         await signAndSend(CONFIG.tokenA, 'approve', [
-          addr,                          // from
-          poolAddr,                      // spender (пул)
-          i128ScVal(amtA),              // amount
-          StellarSdk.nativeToScVal(expLedger, { type: 'u32' })  // expiration_ledger
+          addrScVal,
+          poolScVal,
+          i128ScVal(amtA),
+          StellarSdk.nativeToScVal(expLedger, { type: 'u32' })
         ]);
 
         // 2. Approve токен B (XLM) для пула
-        log('info', 'Approve XLM для пула…');
+        log('info', 'Approve XLM для пула...');
         await signAndSend(CONFIG.tokenB, 'approve', [
-          addr,
-          poolAddr,
+          addrScVal,
+          poolScVal,
           i128ScVal(amtB),
           StellarSdk.nativeToScVal(expLedger, { type: 'u32' })
         ]);
 
-        // 3. Теперь добавляем ликвидность
-        log('info', `Добавляем ликвидность: ${aRaw} NT + ${bRaw} XLM…`);
-        await signAndSend(CONFIG.pool, 'add_liquidity', [addr, i128ScVal(amtA), i128ScVal(amtB)]);
-        log('success', 'Ликвидность добавлена!');
+        // 3. Добавляем ликвидность
+        log('info', `Добавляем ликвидность: ${aRaw} NT + ${bRaw} XLM...`);
+        await signAndSend(CONFIG.pool, 'add_liquidity', [
+          addrScVal,
+          i128ScVal(amtA),
+          i128ScVal(amtB)
+        ]);
+
+        log('success', 'Ликвидность успешно добавлена!');
         await refreshBalances();
+
+        // Очищаем поля
+        document.getElementById('liqAmountA').value = '';
+        document.getElementById('liqAmountB').value = '';
+
       } catch (err) {
-        log('error', `Ошибка: ${err.message}`);
+        log('error', `Ошибка добавления ликвидности: ${err.message}`);
+        console.error(err);
       }
     }
 
     async function removeLiquidity() {
-      if (!userAddress) return;
+      if (!userAddress) {
+        log('error', 'Сначала подключите кошелёк');
+        return;
+      }
+
       const lpRaw = document.getElementById('removeLpAmount').value;
-      if (!lpRaw || parseFloat(lpRaw) <= 0) return;
+      if (!lpRaw || parseFloat(lpRaw) <= 0) {
+        log('error', 'Введите количество LP-токенов для вывода');
+        return;
+      }
 
       const lpAmt = toAmount(lpRaw, CONFIG.decimalsLP);
-      const addr  = new StellarSdk.Address(userAddress).toScVal();
+      const addr = new StellarSdk.Address(userAddress);
+      const addrScVal = addr.toScVal();
 
       try {
-        log('info', `Выводим ${lpRaw} LP-токенов…`);
-        await signAndSend(CONFIG.pool, 'remove_liquidity', [addr, i128ScVal(lpAmt)]);
-        log('success', 'Ликвидность выведена!');
+        log('info', `Выводим ${lpRaw} LP-токенов...`);
+        await signAndSend(CONFIG.pool, 'remove_liquidity', [
+          addrScVal,
+          i128ScVal(lpAmt)
+        ]);
+
+        log('success', 'Ликвидность успешно выведена!');
         await refreshBalances();
+
+        // Очищаем поле
+        document.getElementById('removeLpAmount').value = '';
+
       } catch (err) {
-        log('error', `Ошибка: ${err.message}`);
+        log('error', `Ошибка вывода ликвидности: ${err.message}`);
+        console.error(err);
       }
     }
 
@@ -839,22 +926,42 @@
     // ╚═══════════════════════════════════════════════════════════════╝
 
     async function doTransfer() {
-      if (!userAddress) return;
-      const to     = document.getElementById('transferTo').value.trim();
-      const amtRaw = document.getElementById('transferAmount').value;
-      if (!to || !amtRaw || parseFloat(amtRaw) <= 0) return;
+      if (!userAddress) {
+        log('error', 'Сначала подключите кошелёк');
+        return;
+      }
 
-      const from  = new StellarSdk.Address(userAddress).toScVal();
+      const to = document.getElementById('transferTo').value.trim();
+      const amtRaw = document.getElementById('transferAmount').value;
+
+      if (!to || !amtRaw || parseFloat(amtRaw) <= 0) {
+        log('error', 'Введите адрес получателя и сумму');
+        return;
+      }
+
+      const from = new StellarSdk.Address(userAddress);
+      const fromScVal = from.toScVal();
       const toVal = new StellarSdk.Address(to).toScVal();
-      const amt   = toAmount(amtRaw, CONFIG.decimalsA);
+      const amt = toAmount(amtRaw, CONFIG.decimalsA);
 
       try {
-        log('info', `Перевод ${amtRaw} NT → ${to.slice(0,8)}…`);
-        await signAndSend(CONFIG.tokenA, 'transfer', [from, toVal, i128ScVal(amt)]);
-        log('success', 'Перевод выполнен!');
+        log('info', `Перевод ${amtRaw} NT → ${to.slice(0, 8)}...`);
+        await signAndSend(CONFIG.tokenA, 'transfer', [
+          fromScVal,
+          toVal,
+          i128ScVal(amt)
+        ]);
+
+        log('success', 'Перевод выполнен успешно!');
         await refreshBalances();
+
+        // Очищаем поля
+        document.getElementById('transferTo').value = '';
+        document.getElementById('transferAmount').value = '';
+
       } catch (err) {
-        log('error', `Перевод ошибка: ${err.message}`);
+        log('error', `Ошибка перевода: ${err.message}`);
+        console.error(err);
       }
     }
 
@@ -876,9 +983,24 @@
     function log(type, msg) {
       const el = document.getElementById('log');
       const ts = new Date().toLocaleTimeString('ru-RU');
-      el.innerHTML += `<div class="${type}">[${ts}] ${msg}</div>`;
+      const colorClass = type === 'error' ? 'error' : (type === 'success' ? 'success' : 'info');
+      el.innerHTML += `<div class="${colorClass}">[${ts}] ${msg}</div>`;
       el.scrollTop = el.scrollHeight;
+
+      // Ограничиваем количество сообщений в логе
+      while (el.children.length > 50) {
+        el.removeChild(el.firstChild);
+      }
     }
+
+    // Делаем функции доступными глобально для onclick обработчиков
+    window.connectWallet = connectWallet;
+    window.updateQuote = updateQuote;
+    window.flipSwap = flipSwap;
+    window.doSwap = doSwap;
+    window.addLiquidity = addLiquidity;
+    window.removeLiquidity = removeLiquidity;
+    window.doTransfer = doTransfer;
 
     // Запуск
     window.addEventListener('DOMContentLoaded', init);
