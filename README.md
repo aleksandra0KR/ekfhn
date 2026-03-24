@@ -161,7 +161,7 @@ https://aleksandra0kr.github.io/ekfhn/
   
 ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/1.png?raw=true)
 
-3. Добавление ликвидности
+2. Добавление ликвидности
    
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/2.png?raw=true)
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/3.png?raw=true)
@@ -173,9 +173,9 @@ https://aleksandra0kr.github.io/ekfhn/
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/6.png?raw=true)
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/7.png?raw=true)
 
-6. Перевод токенов
+4. Перевод токенов
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/8.png?raw=true)
-   ![alt text](https://github.com/aleksandra0KR/stellar/blob/master/img/9.png?raw=true)
+   ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/9.png?raw=true)
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/10.png?raw=true)
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/11.png?raw=true)
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/12.png?raw=true)
