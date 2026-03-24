@@ -129,6 +129,11 @@ impl LpTokenContract {
             symbol: String::from_str(&e, "NLP"),
         });
     }
+    pub fn set_minter(e: Env, new_minter: Address) {
+        let admin = get_admin(&e);
+        admin.require_auth();
+        e.storage().instance().set(&DataKey::Minter, &new_minter);
+    }
 
     /// Минтить LP-токены может только minter (контракт пула).
     pub fn mint(e: Env, to: Address, amount: i128) {
@@ -190,6 +195,7 @@ impl token::Interface for LpTokenContract {
         get_balance(&e, &id)
     }
 
+
     fn transfer(e: Env, from: Address, to: Address, amount: i128) {
         from.require_auth();
         check_positive(amount);
@@ -235,6 +241,7 @@ impl token::Interface for LpTokenContract {
         set_total_supply(&e, get_total_supply(&e) - amount);
         TokenUtils::new(&e).events().burn(from, amount);
     }
+
 
     fn decimals(e: Env) -> u32 {
         TokenUtils::new(&e).metadata().get_metadata().decimal

@@ -141,7 +141,6 @@ impl LiquidityPool {
             lp_amount = isqrt(amount_a * amount_b);
         } else {
             // Пропорционально меньшему вкладу
-            let lp_client = token::Client::new(&e, &lp_addr);
 
             // Получаем total_supply LP-токенов через отдельный вызов
             // т.к. LP контракт хранит total_supply, используем хак:
