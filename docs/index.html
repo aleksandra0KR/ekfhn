@@ -797,7 +797,7 @@
 
   async function getExpirationLedger() {
     const latestLedger = await server.getLatestLedger();
-    return latestLedger.sequence + 500000; // ~месяц
+    return latestLedger.sequence + 500000;
   }
   async function addLiquidity() {
     if (!userAddress) return;
@@ -810,10 +810,6 @@
     const addr = new StellarSdk.Address(userAddress).toScVal();
     const poolAddr = new StellarSdk.Address(CONFIG.pool).toScVal();
     const expLedger = await getExpirationLedger();
-    await signAndSend(tokenIn, 'approve', [
-      addr, poolAddr, i128ScVal(amt),
-      StellarSdk.nativeToScVal(expLedger, { type: 'u32' })
-    ]);
 
     try {
       log('info', 'Approve NT для пула…');
@@ -829,7 +825,9 @@
       ]);
 
       log('info', `Добавляем ликвидность: ${aRaw} NT + ${bRaw} XLM…`);
-      await signAndSend(CONFIG.pool, 'add_liquidity', [addr, i128ScVal(amtA), i128ScVal(amtB)]);
+      await signAndSend(CONFIG.pool, 'add_liquidity', [
+        addr, i128ScVal(amtA), i128ScVal(amtB)
+      ]);
       log('success', 'Ликвидность добавлена!');
       await refreshBalances();
     } catch (err) {
