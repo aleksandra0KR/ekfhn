@@ -795,6 +795,10 @@
   // ║  ЛИКВИДНОСТЬ                                                 ║
   // ╚═══════════════════════════════════════════════════════════════╝
 
+  async function getExpirationLedger() {
+    const latestLedger = await server.getLatestLedger();
+    return latestLedger.sequence + 500000; // ~месяц
+  }
   async function addLiquidity() {
     if (!userAddress) return;
     const aRaw = document.getElementById('liqAmountA').value;
@@ -805,28 +809,25 @@
     const amtB = toAmount(bRaw, CONFIG.decimalsB);
     const addr = new StellarSdk.Address(userAddress).toScVal();
     const poolAddr = new StellarSdk.Address(CONFIG.pool).toScVal();
-    const expLedger = 9999999;
+    const expLedger = await getExpirationLedger();
+    await signAndSend(tokenIn, 'approve', [
+      addr, poolAddr, i128ScVal(amt),
+      StellarSdk.nativeToScVal(expLedger, { type: 'u32' })
+    ]);
 
     try {
-      // 1. Approve токен A (NT) для пула
       log('info', 'Approve NT для пула…');
       await signAndSend(CONFIG.tokenA, 'approve', [
-        addr,                          // from
-        poolAddr,                      // spender (пул)
-        i128ScVal(amtA),              // amount
-        StellarSdk.nativeToScVal(expLedger, { type: 'u32' })  // expiration_ledger
-      ]);
-
-      // 2. Approve токен B (XLM) для пула
-      log('info', 'Approve XLM для пула…');
-      await signAndSend(CONFIG.tokenB, 'approve', [
-        addr,
-        poolAddr,
-        i128ScVal(amtB),
+        addr, poolAddr, i128ScVal(amtA),
         StellarSdk.nativeToScVal(expLedger, { type: 'u32' })
       ]);
 
-      // 3. Теперь добавляем ликвидность
+      log('info', 'Approve XLM для пула…');
+      await signAndSend(CONFIG.tokenB, 'approve', [
+        addr, poolAddr, i128ScVal(amtB),
+        StellarSdk.nativeToScVal(expLedger, { type: 'u32' })
+      ]);
+
       log('info', `Добавляем ликвидность: ${aRaw} NT + ${bRaw} XLM…`);
       await signAndSend(CONFIG.pool, 'add_liquidity', [addr, i128ScVal(amtA), i128ScVal(amtB)]);
       log('success', 'Ликвидность добавлена!');
