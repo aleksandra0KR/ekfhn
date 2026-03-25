@@ -104,15 +104,12 @@ pub struct NabokaContract;
 
 #[contractimpl]
 impl NabokaContract {
-    pub fn __constructor(e: Env, admin: Address, decimal: u32, name: String, symbol: String) {
-        if decimal > 18 {
-            panic!("decimal > 18");
-        }
+    pub fn __constructor(e: Env, admin: Address) {
         e.storage().instance().set(&DataKey::Admin, &admin);
         TokenUtils::new(&e).metadata().set_metadata(&TokenMetadata {
-            decimal,
-            name,
-            symbol,
+            decimal: 7,
+            name:   String::from_str(&e, "NabokaToken"),
+            symbol: String::from_str(&e, "NT"),
         });
     }
 
