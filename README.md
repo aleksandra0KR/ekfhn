@@ -110,7 +110,7 @@ DEPLOYER=$(stellar keys address deployer)
 # ─── Деплой NabokaToken ───
 TOKEN_A=$(stellar contract deploy \
     --wasm target/wasm32v1-none/release/naboka_token.wasm \
-    --source deployer --network testnet --admin $DEPLOYER)
+    --source deployer --network testnet -- --admin $DEPLOYER)
 
 
 # ─── Адрес нативного XLM SAC ───
@@ -150,8 +150,8 @@ https://aleksandra0kr.github.io/ekfhn/
 
 | Контракт | Адрес |
 |----------|-------|
-| LP Token | https://stellar.expert/explorer/testnet/search?term=CDMWJEWGWIWFZY54UNG3H425LT4E6M7NUSCXGLGDXYJLRWEICP3YCVQV |
-| Liquidity Pool | https://stellar.expert/explorer/testnet/contract/CB5LYY3BSBDONAPSX2PQQ4VDF2GQ4I6HRL6D3QYB2MRO3OYP27DSZGTT |
+| LP Token | https://stellar.expert/explorer/testnet/search?term=CCWEAFZNA7QXV3ADUL2DBYMTVA7DAYAQ5WMTGNFCALXYQGP2SGNFRVAZ |
+| Liquidity Pool | https://stellar.expert/explorer/testnet/contract/CCFLHCOPTL7DQMANTPEVICRHYSAO2WOHNGFPXC3R357CTHIPDC3PCTCC |
 
 ---
 
