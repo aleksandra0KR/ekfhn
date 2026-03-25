@@ -5,19 +5,17 @@ use soroban_sdk::{contract, contractimpl, contracttype, token, Address, Env, Int
 const INSTANCE_BUMP: u32 = 7 * 17280;
 const INSTANCE_THRESHOLD: u32 = 6 * 17280;
 
-// ───────── Хранилище ─────────
 
 #[contracttype]
 pub enum PoolKey {
-    TokenA,       // Address контракта токена A (NabokaToken)
-    TokenB,       // Address контракта токена B (нативный XLM-обёртка)
-    LpToken,      // Address контракта LP-токена
-    ReserveA,     // i128 — текущий резерв A в пуле
-    ReserveB,     // i128 — текущий резерв B в пуле
-    TotalSwaps,   // u64 — общее число проведённых свопов
+    TokenA,
+    TokenB,
+    LpToken,
+    ReserveA,
+    ReserveB,
+    TotalSwaps,
 }
 
-// ───────── Вспомогательные функции ─────────
 
 fn bump(e: &Env) {
     e.storage().instance().extend_ttl(INSTANCE_THRESHOLD, INSTANCE_BUMP);
@@ -47,7 +45,6 @@ fn set_reserves(e: &Env, a: i128, b: i128) {
     e.storage().instance().set(&PoolKey::ReserveB, &b);
 }
 
-/// Целочисленный квадратный корень (метод Ньютона, Вавилонский алгоритм).
 fn isqrt(val: i128) -> i128 {
     if val < 0 {
         panic!("sqrt of negative");
@@ -64,14 +61,12 @@ fn isqrt(val: i128) -> i128 {
     x
 }
 
-// ───────── Контракт ─────────
 
 #[contract]
 pub struct LiquidityPool;
 
 #[contractimpl]
 impl LiquidityPool {
-    /// Инициализация пула: задаём адреса токенов A, B и LP-токена.
     pub fn __constructor(e: Env, token_a: Address, token_b: Address, lp_token: Address) {
         e.storage().instance().set(&PoolKey::TokenA, &token_a);
         e.storage().instance().set(&PoolKey::TokenB, &token_b);
@@ -80,39 +75,26 @@ impl LiquidityPool {
         e.storage().instance().set(&PoolKey::TotalSwaps, &0u64);
     }
 
-    // ────────────────── Чтение состояния ──────────────────
 
-    /// Возвращает текущие резервы пула (reserve_a, reserve_b).
     pub fn get_reserves(e: Env) -> (i128, i128) {
         bump(&e);
         (get_reserve_a(&e), get_reserve_b(&e))
     }
 
-    /// Адрес токена A.
     pub fn token_a(e: Env) -> Address {
         get_token_a(&e)
     }
-    /// Адрес токена B.
     pub fn token_b(e: Env) -> Address {
         get_token_b(&e)
     }
-    /// Адрес LP-токена.
     pub fn lp_token(e: Env) -> Address {
         get_lp_token(&e)
     }
-    /// Общее количество проведённых свопов.
     pub fn total_swaps(e: Env) -> u64 {
         bump(&e);
         get_total_swaps(&e)
     }
 
-    // ────────────────── Ликвидность ──────────────────
-
-    /// Добавить ликвидность в пул. Пользователь вносит `amount_a` токенов A
-    /// и `amount_b` токенов B, получая взамен LP-токены.
-    ///
-    /// Первый депозит: LP = sqrt(amount_a * amount_b).
-    /// Последующие: LP = min(amount_a / reserve_a, amount_b / reserve_b) * total_supply.
     pub fn add_liquidity(e: Env, user: Address, amount_a: i128, amount_b: i128) -> i128 {
         user.require_auth();
         if amount_a <= 0 || amount_b <= 0 {
@@ -122,7 +104,6 @@ impl LiquidityPool {
 
         let pool_addr = e.current_contract_address();
 
-        // Переводим токены от пользователя → пул
         let client_a = token::Client::new(&e, &get_token_a(&e));
         let client_b = token::Client::new(&e, &get_token_b(&e));
         client_a.transfer(&user, &pool_addr, &amount_a);
@@ -133,19 +114,11 @@ impl LiquidityPool {
 
         let lp_addr = get_lp_token(&e);
 
-        // Вычисляем количество LP-токенов к выдаче
         let lp_amount: i128;
 
         if reserve_a == 0 && reserve_b == 0 {
-            // Первый депозит — геометрическое среднее
             lp_amount = isqrt(amount_a * amount_b);
         } else {
-            // Пропорционально меньшему вкладу
-
-            // Получаем total_supply LP-токенов через отдельный вызов
-            // т.к. LP контракт хранит total_supply, используем хак:
-            // вызываем наш custom метод через "прямой" клиент,
-            // но для универсальности просто посчитаем по формуле
             let total_lp = Self::get_lp_supply_internal(&e, &lp_addr);
 
             let lp_a = (amount_a * total_lp) / reserve_a;
@@ -157,23 +130,17 @@ impl LiquidityPool {
             panic!("lp amount too small");
         }
 
-        // Минтим LP-токены пользователю
-        // Вызываем lp-token.mint(user, lp_amount) — наш LP контракт
-        // Для этого нужно, чтобы текущий контракт (pool) был minter'ом LP-токена.
         e.invoke_contract::<()>(
             &lp_addr,
             &soroban_sdk::Symbol::new(&e, "mint"),
             soroban_sdk::vec![&e, user.to_val(), lp_amount.into_val(&e)],
         );
 
-        // Обновляем резервы
         set_reserves(&e, reserve_a + amount_a, reserve_b + amount_b);
 
         lp_amount
     }
 
-    /// Убрать ликвидность. Пользователь сдаёт LP-токены и получает
-    /// пропорциональную долю резервов A и B.
     pub fn remove_liquidity(e: Env, user: Address, lp_amount: i128) -> (i128, i128) {
         user.require_auth();
         if lp_amount <= 0 {
@@ -197,31 +164,23 @@ impl LiquidityPool {
             panic!("withdraw amount too small");
         }
 
-        // Сжигаем LP-токены пользователя
         e.invoke_contract::<()>(
             &lp_addr,
             &soroban_sdk::Symbol::new(&e, "burn_from_pool"),
             soroban_sdk::vec![&e, user.to_val(), lp_amount.into_val(&e)],
         );
 
-        // Переводим токены из пула пользователю
         let pool_addr = e.current_contract_address();
         let client_a = token::Client::new(&e, &get_token_a(&e));
         let client_b = token::Client::new(&e, &get_token_b(&e));
         client_a.transfer(&pool_addr, &user, &amount_a);
         client_b.transfer(&pool_addr, &user, &amount_b);
 
-        // Обновляем резервы
         set_reserves(&e, reserve_a - amount_a, reserve_b - amount_b);
 
         (amount_a, amount_b)
     }
 
-    // ────────────────── Swap ──────────────────
-
-    /// Обмен: пользователь отдаёт `amount_in` токенов A и получает
-    /// некоторое количество токенов B (по формуле постоянного произведения).
-    /// `min_out` — минимальное количество B, иначе транзакция откатывается (slippage protection).
     pub fn swap_a_to_b(e: Env, user: Address, amount_in: i128, min_out: i128) -> i128 {
         user.require_auth();
         if amount_in <= 0 {
@@ -246,21 +205,18 @@ impl LiquidityPool {
         let client_a = token::Client::new(&e, &get_token_a(&e));
         let client_b = token::Client::new(&e, &get_token_b(&e));
 
-        // Пользователь → пул: токен A
+
         client_a.transfer(&user, &pool_addr, &amount_in);
-        // Пул → пользователь: токен B
         client_b.transfer(&pool_addr, &user, &amount_out);
 
         set_reserves(&e, reserve_a + amount_in, reserve_b - amount_out);
 
-        // Инкремент счётчика свопов
         let swaps = get_total_swaps(&e);
         e.storage().instance().set(&PoolKey::TotalSwaps, &(swaps + 1));
 
         amount_out
     }
 
-    /// Обмен: пользователь отдаёт `amount_in` токенов B и получает токены A.
     pub fn swap_b_to_a(e: Env, user: Address, amount_in: i128, min_out: i128) -> i128 {
         user.require_auth();
         if amount_in <= 0 {
@@ -284,9 +240,7 @@ impl LiquidityPool {
         let client_a = token::Client::new(&e, &get_token_a(&e));
         let client_b = token::Client::new(&e, &get_token_b(&e));
 
-        // Пользователь → пул: токен B
         client_b.transfer(&user, &pool_addr, &amount_in);
-        // Пул → пользователь: токен A
         client_a.transfer(&pool_addr, &user, &amount_out);
 
         set_reserves(&e, reserve_a - amount_out, reserve_b + amount_in);
@@ -297,10 +251,6 @@ impl LiquidityPool {
         amount_out
     }
 
-    // ────────────────── Утилита для расчёта котировок ──────────────────
-
-    /// Рассчитать сколько B получит пользователь за `amount_in` A
-    /// (без совершения транзакции — read-only).
     pub fn quote_a_to_b(e: Env, amount_in: i128) -> i128 {
         bump(&e);
         let ra = get_reserve_a(&e);
@@ -311,7 +261,6 @@ impl LiquidityPool {
         (rb * amount_in) / (ra + amount_in)
     }
 
-    /// Рассчитать сколько A получит пользователь за `amount_in` B.
     pub fn quote_b_to_a(e: Env, amount_in: i128) -> i128 {
         bump(&e);
         let ra = get_reserve_a(&e);
@@ -322,9 +271,6 @@ impl LiquidityPool {
         (ra * amount_in) / (rb + amount_in)
     }
 
-    // ────────────────── Внутренние функции ──────────────────
-
-    /// Получить total_supply LP-токена через кросс-контрактный вызов.
     fn get_lp_supply_internal(e: &Env, lp_addr: &Address) -> i128 {
         e.invoke_contract::<i128>(
             lp_addr,

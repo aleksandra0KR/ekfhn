@@ -6,11 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NabokaDEX — Liquidity Pool</title>
 
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Stellar SDK -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/12.3.0/stellar-sdk.min.js" resource="unsafe-inline"  nonce="EDNef03nceIOfn39fn3e9h3sdfa"></script>
 
   <script type="module" nonce="EDNef09nceIOfn39fn3e9h3sdfa">
@@ -53,7 +51,6 @@
       overflow-x: hidden;
     }
 
-    /* ─── Grain overlay ─── */
     body::before {
       content: '';
       position: fixed;
@@ -64,7 +61,6 @@
       z-index: 9999;
     }
 
-    /* ─── Gradient orbs ─── */
     .orb {
       position: fixed;
       border-radius: 50%;
@@ -77,7 +73,6 @@
     .orb-2 { width: 400px; height: 400px; background: #06b6d4; bottom: -100px; right: -100px; }
     .orb-3 { width: 300px; height: 300px; background: #8b5cf6; top: 50%; left: 60%; }
 
-    /* ─── Layout ─── */
     .container {
       position: relative;
       z-index: 1;
@@ -86,7 +81,6 @@
       padding: 24px 20px;
     }
 
-    /* ─── Header ─── */
     header {
       display: flex;
       justify-content: space-between;
@@ -121,7 +115,6 @@
       color: var(--green);
     }
 
-    /* ─── Status Bar ─── */
     .status-bar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -153,7 +146,6 @@
     .stat-value.accent { color: var(--accent-bright); }
     .stat-value.green  { color: var(--green); }
 
-    /* ─── Tabs ─── */
     .tabs {
       display: flex;
       gap: 4px;
@@ -184,7 +176,6 @@
       box-shadow: 0 2px 10px #6366f130;
     }
 
-    /* ─── Panels ─── */
     .panel {
       display: none;
       animation: fadeIn 0.3s ease;
@@ -210,7 +201,6 @@
       margin-bottom: 20px;
     }
 
-    /* ─── Form Controls ─── */
     .field {
       margin-bottom: 16px;
     }
@@ -274,7 +264,6 @@
       background: linear-gradient(135deg, var(--red-dim), #ef4444);
     }
 
-    /* ─── Swap Arrow ─── */
     .swap-arrow {
       display: flex;
       justify-content: center;
@@ -300,7 +289,6 @@
       color: white;
     }
 
-    /* ─── Quote display ─── */
     .quote-box {
       background: var(--bg-input);
       border: 1px dashed var(--border);
@@ -316,7 +304,6 @@
       font-weight: 600;
     }
 
-    /* ─── Log ─── */
     .log-area {
       margin-top: 32px;
       max-width: 520px;
@@ -346,14 +333,12 @@
     #log .error { color: var(--red); }
     #log .info { color: var(--accent-bright); }
 
-    /* ─── Responsive ─── */
     @media (max-width: 600px) {
       .status-bar { grid-template-columns: 1fr 1fr; }
       .stat-value { font-size: 1.1rem; }
       header { flex-wrap: wrap; gap: 12px; }
     }
 
-    /* ─── Scrollbar ─── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -365,7 +350,6 @@
 <div class="orb orb-3"></div>
 
 <div class="container">
-  <!-- ═══ Header ═══ -->
   <header>
     <div class="logo">Naboka<span>DEX</span></div>
     <button class="connect-btn" id="connectBtn" onclick="connectWallet()">
@@ -373,7 +357,6 @@
     </button>
   </header>
 
-  <!-- ═══ Stats ═══ -->
   <div class="status-bar">
     <div class="stat-card">
       <div class="stat-label">Ваш баланс NT</div>
@@ -397,14 +380,12 @@
     </div>
   </div>
 
-  <!-- ═══ Tabs ═══ -->
   <div class="tabs">
     <button class="tab active" data-panel="swap">Swap</button>
     <button class="tab" data-panel="liquidity">Ликвидность</button>
     <button class="tab" data-panel="transfer">Перевод</button>
   </div>
 
-  <!-- ═══ Swap Panel ═══ -->
   <div class="panel active" id="panel-swap">
     <div class="card">
       <div class="card-title">Обмен токенов</div>
@@ -440,7 +421,6 @@
     </div>
   </div>
 
-  <!-- ═══ Liquidity Panel ═══ -->
   <div class="panel" id="panel-liquidity">
     <div class="card">
       <div class="card-title">Управление ликвидностью</div>
@@ -465,7 +445,6 @@
     </div>
   </div>
 
-  <!-- ═══ Transfer Panel ═══ -->
   <div class="panel" id="panel-transfer">
     <div class="card">
       <div class="card-title">Перевод NT токенов</div>
@@ -481,7 +460,6 @@
     </div>
   </div>
 
-  <!-- ═══ Log ═══ -->
   <div class="log-area">
     <h3>Журнал операций</h3>
     <div id="log"></div>
@@ -489,37 +467,27 @@
 </div>
 
 <script nonce="EDNnf03ncetyOfn39fn3e9h3sdfa">
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  КОНФИГУРАЦИЯ — замените после деплоя контрактов             ║
-  // ╚═══════════════════════════════════════════════════════════════╝
 
   const CONFIG = {
-    // Сеть: 'testnet' или 'public'
+
     network: 'testnet',
     networkPassphrase: 'Test SDF Network ; September 2015',
     rpcUrl: 'https://soroban-testnet.stellar.org',
 
-    // Адреса контрактов (заполните после деплоя!)
+
     tokenA:  'CC4TFKCTIQ7Y7YRQH5VS5UIQCTERPQ67UWQPCLUJOAW7FVBG5ZPGPUUM', // NabokaToken
     tokenB:  'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC', // Native XLM (SAC)
     lpToken: 'CCHWMIYAUZGCQRG6GBKGCBK4EUQTNXUAU3GTPM5XCABB7Q4Y7D7BLTMJ', // LP Token
     pool:    'CBZ4B6YIHCOXPQFGWMHCANUDUOW6I6L7OFCYYF352ILNK6MBM5MZTLH3', // Liquidity Pool
 
-    // Количество десятичных знаков токенов
+
     decimalsA: 7,
     decimalsB: 7,
     decimalsLP: 7,
   };
 
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  СОСТОЯНИЕ ПРИЛОЖЕНИЯ                                        ║
-
   let userAddress = null;
   let server = null;
-
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  ИНИЦИАЛИЗАЦИЯ                                               ║
-  // ╚═══════════════════════════════════════════════════════════════╝
 
   function init() {
     server = new StellarSdk.SorobanRpc.Server(CONFIG.rpcUrl);
@@ -534,10 +502,6 @@
       log('info', 'Загрузка Freighter API…');
     }
   }
-
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  КОШЕЛЁК  (Freighter)                                        ║
-  // ╚═══════════════════════════════════════════════════════════════╝
 
   async function connectWallet() {
     try {
@@ -574,10 +538,6 @@
     }
   }
 
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  ЧТЕНИЕ БАЛАНСОВ И СОСТОЯНИЯ ПУЛА                            ║
-  // ╚═══════════════════════════════════════════════════════════════╝
-
   function toUnits(raw, decimals) {
     if (raw == null) return '—';
     const num = Number(raw) / Math.pow(10, decimals);
@@ -608,29 +568,24 @@
       const addr = new StellarSdk.Address(userAddress);
       const addrScVal = addr.toScVal();
 
-      // Баланс токена A
       const balA = await callContract(CONFIG.tokenA, 'balance', [addrScVal]);
       document.getElementById('balanceA').textContent =
               toUnits(StellarSdk.scValToNative(balA), CONFIG.decimalsA);
 
-      // Баланс токена B (XLM через SAC)
       try {
         const balB = await callContract(CONFIG.tokenB, 'balance', [addrScVal]);
         document.getElementById('balanceB').textContent =
                 toUnits(StellarSdk.scValToNative(balB), CONFIG.decimalsB);
       } catch {
-        // Если SAC не развёрнут, показываем нативный баланс
         const acct = await server.getAccount(userAddress);
         const native = acct.balances?.find(b => b.asset_type === 'native');
         document.getElementById('balanceB').textContent = native ? Number(native.balance).toFixed(2) : '—';
       }
 
-      // LP-баланс
       const balLP = await callContract(CONFIG.lpToken, 'balance', [addrScVal]);
       document.getElementById('balanceLP').textContent =
               toUnits(StellarSdk.scValToNative(balLP), CONFIG.decimalsLP);
 
-      // Резервы пула
       const reserves = await callContract(CONFIG.pool, 'get_reserves', []);
       if (reserves) {
         const [rA, rB] = StellarSdk.scValToNative(reserves);
@@ -638,7 +593,6 @@
                 `${toUnits(rA, CONFIG.decimalsA)} / ${toUnits(rB, CONFIG.decimalsB)}`;
       }
 
-      // Общее число свопов
       const swaps = await callContract(CONFIG.pool, 'total_swaps', []);
       document.getElementById('totalSwaps').textContent =
               swaps != null ? StellarSdk.scValToNative(swaps) : '—';
@@ -646,10 +600,6 @@
       log('error', `Не удалось обновить балансы: ${err.message}`);
     }
   }
-
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  ПОДПИСАНИЕ И ОТПРАВКА ТРАНЗАКЦИЙ                            ║
-  // ╚═══════════════════════════════════════════════════════════════╝
 
   async function signAndSend(contractId, method, args = []) {
     const contract = new StellarSdk.Contract(contractId);
@@ -680,7 +630,6 @@
             ? signResult
             : signResult.signedTxXdr;
 
-    // Отправляем напрямую через JSON-RPC — без парсинга XDR
     const sendRes = await fetch(CONFIG.rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -698,7 +647,6 @@
 
     const hash = sendJson.result?.hash;
 
-    // Ожидаем подтверждение
     const start = Date.now();
     while (Date.now() - start < 30000) {
       const pollRes = await fetch(CONFIG.rpcUrl, {
@@ -726,9 +674,6 @@
     return StellarSdk.nativeToScVal(val, { type: 'i128' });
   }
 
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  SWAP                                                        ║
-  // ╚═══════════════════════════════════════════════════════════════╝
 
   async function updateQuote() {
     const amountRaw = document.getElementById('swapAmountIn').value;
@@ -775,7 +720,6 @@
     const poolAddr = new StellarSdk.Address(CONFIG.pool).toScVal();
 
     try {
-      // Approve входящий токен
       log('info', 'Approve для свопа…');
       await signAndSend(tokenIn, 'approve', [
         addr, poolAddr, i128ScVal(amt),
@@ -789,10 +733,6 @@
       log('error', `Swap ошибка: ${err.message}`);
     }
   }
-
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  ЛИКВИДНОСТЬ                                                 ║
-  // ╚═══════════════════════════════════════════════════════════════╝
 
   async function getExpirationLedger() {
     const latestLedger = await server.getLatestLedger();
@@ -852,10 +792,6 @@
     }
   }
 
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  ПЕРЕВОД ТОКЕНОВ                                             ║
-  // ╚═══════════════════════════════════════════════════════════════╝
-
   async function doTransfer() {
     if (!userAddress) return;
     const to     = document.getElementById('transferTo').value.trim();
@@ -876,9 +812,6 @@
     }
   }
 
-  // ╔═══════════════════════════════════════════════════════════════╗
-  // ║  UI HELPERS                                                   ║
-  // ╚═══════════════════════════════════════════════════════════════╝
 
   function setupTabs() {
     document.querySelectorAll('.tab').forEach(tab => {
@@ -898,7 +831,6 @@
     el.scrollTop = el.scrollHeight;
   }
 
-  // Запуск
   window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>

@@ -14,7 +14,7 @@ const BALANCE_THRESHOLD: u32 = 29 * 17280;
 #[contracttype]
 pub enum DataKey {
     Admin,
-    Minter,               // адрес пула, которому разрешено mint/burn
+    Minter,             
     TotalSupply,
     Balance(Address),
     Allowance(AllowanceKey),
@@ -118,7 +118,6 @@ pub struct LpTokenContract;
 
 #[contractimpl]
 impl LpTokenContract {
-    /// Инициализация LP-токена.  admin — владелец, minter — контракт пула.
     pub fn __constructor(e: Env, admin: Address, minter: Address) {
         e.storage().instance().set(&DataKey::Admin, &admin);
         e.storage().instance().set(&DataKey::Minter, &minter);
@@ -135,7 +134,6 @@ impl LpTokenContract {
         e.storage().instance().set(&DataKey::Minter, &new_minter);
     }
 
-    /// Минтить LP-токены может только minter (контракт пула).
     pub fn mint(e: Env, to: Address, amount: i128) {
         check_positive(amount);
         let minter = get_minter(&e);
@@ -146,7 +144,6 @@ impl LpTokenContract {
         TokenUtils::new(&e).events().mint(minter, to, amount);
     }
 
-    /// Сжечь LP-токены может только minter (контракт пула).
     pub fn burn_from_pool(e: Env, from: Address, amount: i128) {
         check_positive(amount);
         let minter = get_minter(&e);
