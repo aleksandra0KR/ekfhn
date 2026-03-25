@@ -150,8 +150,8 @@ https://aleksandra0kr.github.io/ekfhn/
 
 | Контракт | Адрес |
 |----------|-------|
-| LP Token | https://stellar.expert/explorer/testnet/search?term=CCHWMIYAUZGCQRG6GBKGCBK4EUQTNXUAU3GTPM5XCABB7Q4Y7D7BLTMJ |
-| Liquidity Pool | https://stellar.expert/explorer/testnet/contract/CBZ4B6YIHCOXPQFGWMHCANUDUOW6I6L7OFCYYF352ILNK6MBM5MZTLH3 |
+| LP Token | https://stellar.expert/explorer/testnet/search?term=CDMWJEWGWIWFZY54UNG3H425LT4E6M7NUSCXGLGDXYJLRWEICP3YCVQV |
+| Liquidity Pool | https://stellar.expert/explorer/testnet/contract/CB5LYY3BSBDONAPSX2PQQ4VDF2GQ4I6HRL6D3QYB2MRO3OYP27DSZGTT |
 
 ---
 
