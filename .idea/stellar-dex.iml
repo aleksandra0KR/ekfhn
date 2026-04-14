@@ -5,6 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/contracts/liquidity-pool/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/contracts/lp-token/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/contracts/naboka-token/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/contracts/wrapped_spl/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

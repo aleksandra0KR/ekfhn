@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  oracle:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Монтируем keypair оракула снаружи — не хранить в образе
+      - ./oracle-solana.json:/app/oracle-solana.json:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

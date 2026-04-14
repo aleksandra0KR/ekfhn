@@ -1672,6 +1672,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wrapped_sql"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+ "soroban-token-sdk",
+]
+
+[[package]]
 name = "zerocopy"
 version = "0.8.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"

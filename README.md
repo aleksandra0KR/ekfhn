@@ -65,7 +65,7 @@ amount_out = (reserve_out × amount_in) / (reserve_in + amount_in)
 ```bash
 # 1. Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-rustup target add wasm32-none
+rustup target add wasm32v1-none
 
 # 2. Stellar CLI
 cargo install --locked stellar-cli
@@ -84,9 +84,9 @@ stellar contract build
 
 Это скомпилирует все три контракта в WASM:
 ```
-target/wasm32-none/release/naboka_token.wasm
-target/wasm32-none/release/lp_token.wasm
-target/wasm32-none/release/liquidity_pool.wasm
+target/wasm32v1-none/release/naboka_token.wasm
+target/wasm32v1-none/release/lp_token.wasm
+target/wasm32v1-none/release/liquidity_pool.wasm
 ```
 
 ### Шаг 2. Настройка аккаунта
@@ -111,8 +111,24 @@ DEPLOYER=$(stellar keys address deployer)
 TOKEN_A=$(stellar contract deploy \
     --wasm target/wasm32v1-none/release/naboka_token.wasm \
     --source deployer --network testnet -- --admin $DEPLOYER)
+# Это новый контракт — wrapped токен для SPL партнёров на Stellar.
 
-
+TOKEN_WRAPPER=$(stellar contract deploy \
+  --wasm target/wasm32v1-none/release/wrapped_sql.wasm \
+  --source deployer \
+  --network testnet -- --admin $DEPLOYER --bridge_admin $BRIDGE_ADMIN) # хзbridge_admin
+  # WRAPPED_SPL_CONTRACT=$TOKEN_WRAPPER
+  
+  stellar contract invoke \
+  --id CYYY... \
+  --source deployer \
+  --network testnet \
+  -- \
+  __constructor \
+  --admin $DEPLOYER \
+  --bridge_admin $BRIDGE_ADMIN
+  
+BRIDGE_ADMIN=GAO3WK4F5QDYM56446QTEFJD5XGGUO4MFWE2ABBXXW2ZTZNXR2KP3SNM #stellar keys address oracle
 # ─── Адрес нативного XLM SAC ───
 TOKEN_B=$(stellar contract id asset --asset native --network testnet)
 
@@ -131,7 +147,13 @@ POOL=$(stellar contract deploy \
     -- --token_a $TOKEN_A \
     --token_b $TOKEN_B \
     --lp_token $LP_TOKEN)
-
+  
+#  ─── Назначение пула minter'ом LP-токена ───
+stellar contract invoke \
+    --id $LP_TOKEN \
+    --source deployer --network testnet \
+    -- set_minter \
+    --new_minter $POOL
 
 # ─── Минт токенов для тестирования ───
 stellar contract invoke --id $TOKEN_A --source deployer --network testnet \
