@@ -1,72 +1,73 @@
-import { Address, xdr } from "@stellar/stellar-sdk";
-import { rpc, Networks } from '@stellar/stellar-sdk';
-
+import * as StellarSdk from "@stellar/stellar-sdk";
 import { STELLAR_RPC, NABOKA_TOKEN_CONTRACT, WRAPPED_SPL_CONTRACT } from "./config";
 
-const server = new rpc.Server(STELLAR_RPC);
+const server = new StellarSdk.SorobanRpc.Server(STELLAR_RPC);
 
-// ─── Типы событий ─────────────────────────────────────────────────────────────
+export interface LockEvent  { from: string; amount: bigint; targetSolAddr: string; }
+export interface BburnEvent { from: string; amount: bigint; targetSolAddr: string; }
 
-export interface LockEvent {
-  from:          string;
-  amount:        bigint;
-  targetSolAddr: string;
-  ledger:        number;
+// ─── ScVal парсеры ────────────────────────────────────────────────────────────
+
+function scValToAddress(val: StellarSdk.xdr.ScVal): string {
+  return StellarSdk.Address.fromScVal(val).toString();
 }
 
-export interface BurnEvent {
-  from:          string;
-  amount:        bigint;
-  targetSolAddr: string;
-  ledger:        number;
+function scValToBigInt(val: StellarSdk.xdr.ScVal): bigint {
+  const i128 = val.i128();
+  return (BigInt(i128.hi().toString()) << 64n) | BigInt(i128.lo().toString());
 }
 
-// ─── Парсинг ScVal ────────────────────────────────────────────────────────────
-
-function scValToAddress(val: xdr.ScVal): string {
-  return Address.fromScVal(val).toString();
+function scValToStr(val: StellarSdk.xdr.ScVal): string {
+  try { return StellarSdk.Address.fromScVal(val).toString(); } catch { /* not address */ }
+  const b = val.str();
+  return b ? b.toString() : "";
 }
 
-function scValToBigInt(val: xdr.ScVal): bigint {
-  const i128Val = val.i128();
-  if (!i128Val) throw new Error("Expected i128");
-  const hi = BigInt(i128Val.hi().toString());
-  const lo = BigInt(i128Val.lo().toString());
-  return (hi << 64n) | lo;
-}
-
-function scValToString(val: xdr.ScVal): string {
+function parseEventValue(value: unknown): { from: string; amount: bigint; target: string } | null {
   try {
-    return Address.fromScVal(val).toString();
-  } catch {
-    const str = val.str();
-    return str ? str.toString() : "";
-  }
-}
+    // value может быть строкой base64 или объектом с полем xdr
+    let xdrStr: string;
+    if (typeof value === "string") {
+      xdrStr = value;
+    } else if (value && typeof value === "object" && "xdr" in value) {
+      xdrStr = (value as { xdr: string }).xdr;
+    } else {
+      return null;
+    }
 
-function parseVec(raw: string): { from: string; amount: bigint; target: string } | null {
-  try {
-    const scVal = xdr.ScVal.fromXDR(raw, "base64");
-    const vec = scVal.vec();
+    const scVal = StellarSdk.xdr.ScVal.fromXDR(xdrStr, "base64");
+    const vec   = scVal.vec();
     if (!vec || vec.length < 3) return null;
+
     return {
       from:   scValToAddress(vec[0]),
       amount: scValToBigInt(vec[1]),
-      target: scValToString(vec[2]),
+      target: scValToStr(vec[2]),
     };
   } catch (e) {
-    console.error("[stellar-listener] parse error:", e);
+    console.error("[stellar-listener] parseEventValue error:", e);
+    return null;
+  }
+}
+
+function getTopicSymbol(topic: unknown): string | null {
+  try {
+    if (typeof topic === "string") {
+      return StellarSdk.xdr.ScVal.fromXDR(topic, "base64").sym()?.toString() ?? null;
+    }
+    return (topic as StellarSdk.xdr.ScVal).sym()?.toString() ?? null;
+  } catch {
     return null;
   }
 }
 
 // ─── Polling ──────────────────────────────────────────────────────────────────
 
-async function poll(
-    contractId: string,
-    topicSymbol: string,
-    lastLedger: { seq: number },
-    onEvent: (parsed: { from: string; amount: bigint; target: string }, ledger: number) => Promise<void>
+async function pollEvents(
+    contractId:  string,
+    symbolName:  string,   // "lock" или "bburn" — фильтруем вручную
+    lastLedger:  { seq: number },
+    cb: (from: string, amount: bigint, target: string, ledger: number) => Promise<void>
 ): Promise<void> {
   const current = await server.getLatestLedger();
   if (current.sequence <= lastLedger.seq) return;
@@ -75,40 +76,51 @@ async function poll(
     startLedger: lastLedger.seq + 1,
     filters: [
       {
-        type: "contract",
+        type:        "contract",
         contractIds: [contractId],
-        topics: [[topicSymbol]],
       },
     ],
     limit: 100,
   });
 
   for (const ev of resp.events) {
-    const parsed = parseVec((ev as any).xdr);
-    if (parsed) await onEvent(parsed, ev.ledger);
+    // Фильтруем по первому топику вручную
+    if (!ev.topic || ev.topic.length === 0) continue;
+    const sym = getTopicSymbol(ev.topic[0]);
+    if (sym !== symbolName) continue;
+
+    const parsed = parseEventValue(ev.value);
+    if (!parsed) continue;
+
+    await cb(parsed.from, parsed.amount, parsed.target, ev.ledger);
   }
 
   lastLedger.seq = current.sequence;
 }
 
-// ─── Публичные функции ────────────────────────────────────────────────────────
+// ─── Публичные слушатели ──────────────────────────────────────────────────────
 
+/**
+ * Слушает событие `lock` на NabokaToken.
+ * Срабатывает когда пользователь вызвал lock() — нужно заминтить wNT на Solana.
+ */
 export function listenNabokaLock(
     onLock: (e: LockEvent) => Promise<void>,
     intervalMs = 5000
 ): void {
+  if (!NABOKA_TOKEN_CONTRACT) {
+    console.warn("[stellar-listener] NABOKA_TOKEN_CONTRACT не задан в .env");
+    return;
+  }
+
   const last = { seq: 0 };
-  server.getLatestLedger().then(l => { last.seq = l.sequence; });
+  server.getLatestLedger().then((l) => { last.seq = l.sequence; });
 
   setInterval(async () => {
     try {
-      await poll(NABOKA_TOKEN_CONTRACT, "lock", last, async (p, ledger) => {
-        await onLock({
-          from: p.from,
-          amount: p.amount,
-          targetSolAddr: p.target,
-          ledger,
-        });
+      await pollEvents(NABOKA_TOKEN_CONTRACT, "lock", last, async (from, amount, target, ledger) => {
+        console.log(`[ST lock] ledger=${ledger} from=${from} amount=${amount} → ${target}`);
+        await onLock({ from, amount, targetSolAddr: target });
       });
     } catch (e) {
       console.error("[stellar-listener][lock] poll error:", e);
@@ -118,22 +130,27 @@ export function listenNabokaLock(
   console.log("[stellar-listener] watching NabokaToken lock events...");
 }
 
+/**
+ * Слушает событие `bburn` на WrappedSPL.
+ * Срабатывает когда пользователь вызвал bridge_burn() — нужно release_tokens на Solana.
+ */
 export function listenWrappedSplBurn(
-    onBurn: (e: BurnEvent) => Promise<void>,
+    onBurn: (e: BburnEvent) => Promise<void>,
     intervalMs = 5000
 ): void {
+  if (!WRAPPED_SPL_CONTRACT) {
+    console.warn("[stellar-listener] WRAPPED_SPL_CONTRACT не задан в .env");
+    return;
+  }
+
   const last = { seq: 0 };
-  server.getLatestLedger().then(l => { last.seq = l.sequence; });
+  server.getLatestLedger().then((l) => { last.seq = l.sequence; });
 
   setInterval(async () => {
     try {
-      await poll(WRAPPED_SPL_CONTRACT, "bburn", last, async (p, ledger) => {
-        await onBurn({
-          from: p.from,
-          amount: p.amount,
-          targetSolAddr: p.target,
-          ledger,
-        });
+      await pollEvents(WRAPPED_SPL_CONTRACT, "bburn", last, async (from, amount, target, ledger) => {
+        console.log(`[ST bburn] ledger=${ledger} from=${from} amount=${amount} → ${target}`);
+        await onBurn({ from, amount, targetSolAddr: target });
       });
     } catch (e) {
       console.error("[stellar-listener][bburn] poll error:", e);

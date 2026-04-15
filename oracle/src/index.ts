@@ -3,84 +3,64 @@ import { listenSolanaLock, listenSolanaWrapBurn } from "./solana-listener";
 import { mintWrappedNaboka, releaseSpl }           from "./solana-minter";
 import { mintWrappedSpl, releaseNaboka }           from "./stellar-minter";
 
+// Очередь для Stellar транзакций — предотвращает txBadSeq
+// (Stellar использует sequence number, параллельные tx конфликтуют)
+let stellarQueue = Promise.resolve();
+
+function enqueueStella(fn: () => Promise<void>): void {
+  stellarQueue = stellarQueue.then(() => fn().catch((e) => {
+    console.error("[queue] error:", e?.message ?? e);
+  }));
+}
+
 async function main(): Promise<void> {
-  console.log("═══════════════════════════════════════");
-  console.log("  Naboka Bridge Oracle started");
-  console.log("═══════════════════════════════════════");
+  console.log("═══════════════════════════════════════════════");
+  console.log("        Naboka Bridge Oracle  v1.0.0");
+  console.log("═══════════════════════════════════════════════");
 
-  // ── Stellar → Solana ─────────────────────────────────────────────────────────
-  //
-  // 1. Пользователь вызвал lock() на NabokaToken (Stellar)
-  //    → оракул минтит wNT на Solana
+  // ── Solana → Stellar ──────────────────────────────────────────────────────
+  // lock_tokens() на SimpleToken → bridge_mint wSPL на Stellar
+  listenSolanaLock(async (e) => {
+    console.log(`\n[SOL→ST] LOCK  user=${e.user}  amount=${e.amount}  to=${e.targetStellarAddr}`);
+    enqueueStella(async () => {
+      const hash = await mintWrappedSpl(e.targetStellarAddr, e.amount);
+      console.log(`[SOL→ST] ✓ wSPL minted  tx=${hash}`);
+    });
+  });
 
+  // burn_wrapped() на WrappedNaboka → release NT на Stellar
+  listenSolanaWrapBurn(async (e) => {
+    console.log(`\n[SOL→ST] BURN_WRAP  user=${e.user}  amount=${e.amount}  to=${e.targetStellarAddr}`);
+    enqueueStella(async () => {
+      const hash = await releaseNaboka(e.targetStellarAddr, e.amount);
+      console.log(`[SOL→ST] ✓ NT released  tx=${hash}`);
+    });
+  });
+
+  // ── Stellar → Solana ──────────────────────────────────────────────────────
+  // lock() на NabokaToken → mint wNT на Solana
   listenNabokaLock(async (e) => {
-    console.log(`\n[ST→SOL] LOCK detected`);
-    console.log(`  from:   ${e.from}`);
-    console.log(`  amount: ${e.amount}`);
-    console.log(`  to Sol: ${e.targetSolAddr}`);
+    console.log(`\n[ST→SOL] LOCK  from=${e.from}  amount=${e.amount}  to=${e.targetSolAddr}`);
     try {
       const sig = await mintWrappedNaboka(e.targetSolAddr, e.amount);
-      console.log(`  ✓ wNT minted on Solana: ${sig}`);
-    } catch (err) {
-      console.error(`  ✗ mintWrappedNaboka failed:`, err);
+      console.log(`[ST→SOL] ✓ wNT minted  sig=${sig}`);
+    } catch (err: any) {
+      console.error(`[ST→SOL] ✗ mintWrappedNaboka failed:`, err?.message ?? err);
     }
   });
 
-  // 2. Пользователь вызвал bridge_burn() на WrappedSPL (Stellar)
-  //    → оракул вызывает release_tokens на Solana
-
+  // bridge_burn() на WrappedSPL → release SPL на Solana
   listenWrappedSplBurn(async (e) => {
-    console.log(`\n[ST→SOL] BRIDGE_BURN detected`);
-    console.log(`  from:   ${e.from}`);
-    console.log(`  amount: ${e.amount}`);
-    console.log(`  to Sol: ${e.targetSolAddr}`);
+    console.log(`\n[ST→SOL] BBURN  from=${e.from}  amount=${e.amount}  to=${e.targetSolAddr}`);
     try {
       const sig = await releaseSpl(e.targetSolAddr, e.amount);
-      console.log(`  ✓ SPL released on Solana: ${sig}`);
-    } catch (err) {
-      console.error(`  ✗ releaseSpl failed:`, err);
+      console.log(`[ST→SOL] ✓ SPL released  sig=${sig}`);
+    } catch (err: any) {
+      console.error(`[ST→SOL] ✗ releaseSpl failed:`, err?.message ?? err);
     }
   });
 
-  // ── Solana → Stellar ──────────────────────────────────────────────────────────
-  //
-  // 3. Пользователь вызвал lock_tokens() на simple_token (Solana)
-  //    → оракул минтит wSPL на Stellar
-
-  listenSolanaLock(async (e) => {
-    console.log(`\n[SOL→ST] LOCK_TOKENS detected`);
-    console.log(`  from:      ${e.user}`);
-    console.log(`  amount:    ${e.amount}`);
-    console.log(`  to Stellar: ${e.targetStellarAddr}`);
-    try {
-      const hash = await mintWrappedSpl(e.targetStellarAddr, e.amount);
-      console.log(`  ✓ wSPL minted on Stellar: ${hash}`);
-    } catch (err) {
-      console.error(`  ✗ mintWrappedSpl failed:`, err);
-    }
-  });
-
-  // 4. Пользователь вызвал burn_wrapped() на wrapped_naboka (Solana)
-  //    → оракул вызывает release() на NabokaToken (Stellar)
-
-  listenSolanaWrapBurn(async (e) => {
-    console.log(`\n[SOL→ST] BURN_WRAPPED detected`);
-    console.log(`  from:      ${e.user}`);
-    console.log(`  amount:    ${e.amount}`);
-    console.log(`  to Stellar: ${e.targetStellarAddr}`);
-    try {
-      const hash = await releaseNaboka(e.targetStellarAddr, e.amount);
-      console.log(`  ✓ NT released on Stellar: ${hash}`);
-    } catch (err) {
-      console.error(`  ✗ releaseNaboka failed:`, err);
-    }
-  });
-
-  // Держим процесс живым
   await new Promise(() => {});
 }
 
-main().catch((e) => {
-  console.error("Oracle crashed:", e);
-  process.exit(1);
-});
+main().catch((e) => { console.error("Oracle crashed:", e); process.exit(1); });

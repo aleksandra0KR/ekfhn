@@ -36,9 +36,10 @@ Wasm файл появится по пути:
 TOKEN_A=$(stellar contract deploy \
     --wasm target/wasm32v1-none/release/naboka_token.wasm \
     --source deployer --network testnet -- --admin $DEPLOYER)
+    
 ```
-keypair=deployer
-> `--source deployer` — это имя твоего keypair в stellar CLI.
+
+> `--source admin` — это имя твоего keypair в stellar CLI.
 > Если называется иначе — подставь своё имя.
 > Посмотреть список: `stellar keys ls`
 
@@ -51,9 +52,31 @@ CXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ### 1.3 — Инициализация контракта
 
 ```bash
+stellar contract invoke \
+  --id $TOKEN_A  \
+  --source admin \
+  --network testnet \
+  -- \
+  __constructor \
+  --admin $DEPLOYER
+  
+  
+  
+  
 ```
+cargo build --target wasm32v1-none --release
 
-> `$DEPLOYER` — твой публичный адрес admin keypair.
+
+stellar contract deploy \
+--wasm target/wasm32v1-none/release/wrapped_sql.wasm \
+--source deployer \
+--network testnet \
+-- --admin $DEPLOYER \
+--bridge_admin $BRIDGE_ADMIN
+#
+WRAPPED_SPL_CONTRACT=CC2PDJVLDGE4SVDMWJ6KUB3G3CGHBDR6IIIZVU2BRTZJXV2PI4GXZJJL
+
+> `$DEPLOYE` — твой публичный адрес admin keypair.
 > Посмотреть: `stellar keys address admin`
 
 ---
@@ -73,49 +96,40 @@ cargo build --target wasm32v1-none --release
 ### 2.2 — Деплой
 
 ```bash
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/wrapped_spl.wasm \
+  --source admin \
+  --network testnet
+```
+
+Аналогично — получаешь ID вида `CYYY...`.
+**Копируешь — это WRAPPED_SPL_CONTRACT.**
+
+### 2.3 — Инициализация
+
 Здесь передаём два аргумента: admin и bridge_admin (оракул).
 
+Сначала узнаём адрес оракула:
+```bash
 # Если keypair оракула ещё не создан — создаём:
 stellar keys generate oracle --network testnet
 
 # Смотрим G... адрес оракула:
-stellar keys address oracleСначала узнаём адрес оракула:
-```bash
-
-
-BRIDGE_ADMIN=GAO3WK4F5QDYM56446QTEFJD5XGGUO4MFWE2ABBXXW2ZTZNXR2KP3SNM #stellar keys address oracle
-
-
-TOKEN_WRAPPER=$(stellar contract deploy \
-  --wasm target/wasm32v1-none/release/wrapped_sql.wasm \
-  --source deployer \
-  --network testnet -- --admin $DEPLOYER --bridge_admin $BRIDGE_ADMIN) 
-  
+stellar keys address oracle
 ```
-
-
-Аналогично — получаешь ID вида `$TOKEN_WRAPPER`.
-**Копируешь — это WRAPPED_SPL_CONTRACT.**
-
-
-WRAPPED_SPL_CONTRACT=$TOKEN_WRAPPER
-
-### 2.3 — Инициализация
-
-
 
 Запомни этот G... адрес — назовём его GORACLE.
 
 Теперь инициализируем wrapped_spl:
 ```bash
 stellar contract invoke \
-  --id $TOKEN_WRAPPER \
-  --source deployer \
+  --id CYYY... \
+  --source admin \
   --network testnet \
   -- \
   __constructor \
-  --admin $DEPLOYER \
-  --bridge_admin $BRIDGE_ADMIN # хз вроде не нвдо
+  --admin $DEPLOYE \
+  --bridge_admin GORACLE...
 ```
 
 ---
@@ -130,21 +144,21 @@ stellar contract invoke \
 ```bash
 stellar contract invoke \
   --id $TOKEN_A \
-  --source deployer \
+  --source admin \
   --network testnet \
   -- \
   set_bridge_admin \
-  --bridge_admin $BRIDGE_ADMIN
+  --bridge_admin GORACLE...
 ```
 
 Проверяем что записалось:
 ```bash
 stellar contract invoke \
   --id $TOKEN_A \
-  --source deployer \
+  --source admin \
   --network testnet \
   -- \
-  bridge_admin # хз не работает 
+  bridge_admin
 ```
 
 Должен вывести тот же GORACLE адрес.
@@ -156,8 +170,8 @@ Wrapped_spl получил bridge_admin ещё при инициализации
 
 ```bash
 stellar contract invoke \
-  --id $TOKEN_WRAPPER \
-  --source deployer \
+  --id CYYY... \
+  --source admin \
   --network testnet \
   -- \
   bridge_admin
@@ -271,8 +285,8 @@ STELLAR_RPC=https://soroban-testnet.stellar.org
 STELLAR_NETWORK=Test SDF Network ; September 2015
 
 # Твои контракты (из шагов 1.2 и 2.2)
-NABOKA_TOKEN_CONTRACT=TOKEN_A
-WRAPPED_SPL_CONTRACT=$TOKEN_WRAPPER
+NABOKA_TOKEN_CONTRACT=$TOKEN_A
+WRAPPED_SPL_CONTRACT=CYYY...
 
 # Secret key оракула — смотришь так:
 # stellar keys show oracle
@@ -293,7 +307,7 @@ ORACLE_SOLANA_KEYPAIR_PATH=./oracle-solana.json
 stellar keys show oracle
 # Выводит secret key вида S...
 ```
-
+stellar contract invoke   --id CC7VPLSUQRTGPFJCNXF7J3ZTAAVQTMS7FEPOBYL7PI2TNCQHG3WGLHUN   --source deployer   --network testnet   --   lock   --from $(stellar keys address deployer)   --amount 10000   --target_sol_addr "BVmyHysSWcz8fnx25CcHH2PW6smWka1S7oSfeTsuh5j9"
 ---
 
 ## ШАГ 7 — npm install и создаём Solana keypair оракула
@@ -313,7 +327,6 @@ solana-keygen pubkey oracle-solana.json
 ```
 
 Этот публичный ключ партнёры пропишут как bridge_admin
-6dexJsxmngu3CJKqkDgkuBJ5dwRPaB2gxeuc7i16KYvu
 в своём wrapped_naboka при инициализации.
 
 ---

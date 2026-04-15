@@ -202,3 +202,13 @@ https://aleksandra0kr.github.io/ekfhn/
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/11.png?raw=true)
    ![alt text](https://github.com/aleksandra0KR/ekfhn/blob/master/img/12.png?raw=true)
 
+
+stellar contract invoke \
+--id CC7VPLSUQRTGPFJCNXF7J3ZTAAVQTMS7FEPOBYL7PI2TNCQHG3WGLHUN \
+--source deployer \
+--network testnet \
+-- \
+lock \
+--from GB3GJXJTWWMD74JZAX2CEJ5QRA7TKPAW5BSOPUBJR7B3VMUBALORT6NO \
+--amount 10000000 \
+--target_sol_addr "BVmyHysSWcz8fnx25CcHH2PW6smWka1S7oSfeTsuh5j9"

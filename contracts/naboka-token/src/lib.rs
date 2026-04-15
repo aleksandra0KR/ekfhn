@@ -67,6 +67,7 @@ fn get_balance(e: &Env, addr: &Address) -> i128 {
     }
 }
 
+
 fn set_balance(e: &Env, addr: &Address, amount: i128) {
     let key = DataKey::Balance(addr.clone());
     e.storage().persistent().set(&key, &amount);
@@ -140,7 +141,10 @@ impl NabokaContract {
     pub fn admin(e: Env) -> Address {
         get_admin(&e)
     }
-
+    pub fn bridge_admin(e: Env) -> Address {
+        bump(&e);
+        get_bridge_admin(&e)
+    }
     pub fn set_bridge_admin(e: Env, bridge_admin: Address) {
         get_admin(&e).require_auth();
         e.storage().instance().set(&DataKey::BridgeAdmin, &bridge_admin);

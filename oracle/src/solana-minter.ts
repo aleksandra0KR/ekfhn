@@ -1,150 +1,138 @@
 import {
-    Connection,
-    PublicKey,
-    SystemProgram,
-    Transaction,
-    VersionedTransaction,
-    Keypair,
+  Connection,
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  VersionedTransaction,
 } from "@solana/web3.js";
 import {
-    AnchorProvider,
-    Program,
-    BN,
-    Idl,
-    Wallet,
+  AnchorProvider,
+  Program,
+  BN,
+  type Idl,
+  Wallet,
 } from "@coral-xyz/anchor";
 import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
-    SOLANA_RPC,
-    SIMPLE_TOKEN_PROGRAM,
-    WRAPPED_NABOKA_PROGRAM,
-    loadSolanaKeypair,
+  SOLANA_RPC,
+  SIMPLE_TOKEN_PROGRAM,
+  WRAPPED_NABOKA_PROGRAM,
+  loadSolanaKeypair,
 } from "./config";
 
-// Импорт IDL с правильным приведением типов
-import simpleTokenIdlRaw from "../../idl/simple_token.json";
-import wrappedNabokaIdlRaw from "../../idl/wrapped_naboka.json";
-
-// Приведение к типу Idl (если структура неполная, можно использовать as any)
-const simpleTokenIdl = simpleTokenIdlRaw as unknown as Idl;
-const wrappedNabokaIdl = wrappedNabokaIdlRaw as unknown as Idl;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const simpleTokenIdl   = require("./idl/simple_token.json");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const wrappedNabokaIdl = require("./idl/wrapped_naboka.json");
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function makeProvider(): AnchorProvider {
-    const keypair = loadSolanaKeypair();
-    const connection = new Connection(SOLANA_RPC, "confirmed");
-    const wallet = new Wallet(keypair); // Используем встроенный Wallet
-    return new AnchorProvider(connection, wallet, {
-        commitment: "confirmed",
-        preflightCommitment: "confirmed",
-    });
+  const keypair    = loadSolanaKeypair();
+  const connection = new Connection(SOLANA_RPC, "confirmed");
+  const wallet     = new Wallet(keypair);
+  return new AnchorProvider(connection, wallet, {
+    commitment:          "confirmed",
+    preflightCommitment: "confirmed",
+  });
 }
 
-function deriveSimpleTokenMint(programId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from("mint")], programId)[0];
-}
-
-function deriveStatePda(programId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from("state")], programId)[0];
-}
-
-function deriveLockVault(mint: PublicKey, programId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync(
-        [Buffer.from("lock_vault"), mint.toBuffer()],
-        programId
-    )[0];
-}
-
-function deriveLockVaultAuth(mint: PublicKey, programId: PublicKey): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync(
-        [Buffer.from("lock_auth"), mint.toBuffer()],
-        programId
-    );
-}
-
-function deriveWrappedMint(programId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from("wmint")], programId)[0];
-}
-
-function deriveWrappedState(programId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from("wstate")], programId)[0];
-}
-
-function deriveWrappedMintAuth(programId: PublicKey): [PublicKey, number] {
-    return PublicKey.findProgramAddressSync([Buffer.from("wmint_auth")], programId);
-}
+const mintPda      = (pid: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("mint")],       pid)[0];
+const statePda     = (pid: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("state")],      pid)[0];
+const lockVaultPda = (mint: PublicKey, pid: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("lock_vault"), mint.toBuffer()], pid)[0];
+const lockAuthPda  = (mint: PublicKey, pid: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("lock_auth"),  mint.toBuffer()], pid);
+const wMintPda     = (pid: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("wmint")],      pid)[0];
+const wStatePda    = (pid: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("wstate")],     pid)[0];
+const wMintAuthPda = (pid: PublicKey) =>
+  PublicKey.findProgramAddressSync([Buffer.from("wmint_auth")], pid);
 
 // ─── Публичные функции ────────────────────────────────────────────────────────
 
+/**
+ * Минтит wNT на Solana.
+ * Вызывается когда оракул поймал lock() на NabokaToken (Stellar).
+ */
 export async function mintWrappedNaboka(
-    recipientSolAddr: string,
-    amount: bigint
+  recipientSolAddr: string,
+  amount: bigint
 ): Promise<string> {
-    console.log(`[solana-minter] mint_wrapped_naboka → ${recipientSolAddr}, amount=${amount}`);
+  console.log(`[solana-minter] mint_wrapped → ${recipientSolAddr} amount=${amount}`);
+  if (!WRAPPED_NABOKA_PROGRAM) throw new Error("WRAPPED_NABOKA_PROGRAM не задан в .env");
 
-    const provider = makeProvider();
-    const programId = new PublicKey(WRAPPED_NABOKA_PROGRAM);
-    const program = new Program(wrappedNabokaIdl, programId, provider);
+  const provider  = makeProvider();
+  const pid       = new PublicKey(WRAPPED_NABOKA_PROGRAM);
+  const program   = new Program(wrappedNabokaIdl as Idl, pid, provider);
 
-    const recipient = new PublicKey(recipientSolAddr);
-    const wrappedMint = deriveWrappedMint(programId);
-    const wrappedState = deriveWrappedState(programId);
-    const [mintAuth, mintAuthBump] = deriveWrappedMintAuth(programId);
-    const recipientAta = await getAssociatedTokenAddress(wrappedMint, recipient);
+  const recipient      = new PublicKey(recipientSolAddr);
+  const wrappedMint    = wMintPda(pid);
+  const wrappedState   = wStatePda(pid);
+  const [mintAuth]     = wMintAuthPda(pid);
+  const recipientAta   = await getAssociatedTokenAddress(wrappedMint, recipient);
 
-    const sig = await program.methods
-        .mintWrapped(new BN(amount.toString()), mintAuthBump)
-        .accounts({
-            wrappedState,
-            mint: wrappedMint,
-            mintAuthority: mintAuth,
-            recipientAta,
-            recipient,
-            bridgeAdmin: provider.wallet.publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            systemProgram: SystemProgram.programId,
-        })
-        .rpc();
+  // ← ИСПРАВЛЕНО: убран лишний аргумент mintAuthBump
+  // контракт mint_wrapped принимает только amount
+  const sig = await program.methods
+    .mintWrapped(new BN(amount.toString()))
+    .accounts({
+      wrappedState,
+      mint:                   wrappedMint,
+      mintAuthority:          mintAuth,
+      recipientAta,
+      recipient,
+      bridgeAdmin:            provider.wallet.publicKey,
+      tokenProgram:           TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram:          SystemProgram.programId,
+    })
+    .rpc();
 
-    console.log(`[solana-minter] mint_wrapped OK: ${sig}`);
-    return sig;
+  console.log(`[solana-minter] mint_wrapped OK sig=${sig}`);
+  return sig;
 }
 
+/**
+ * Разблокирует SPL токены на Solana.
+ * Вызывается когда оракул поймал bridge_burn() на WrappedSPL (Stellar).
+ */
 export async function releaseSpl(
-    recipientSolAddr: string,
-    amount: bigint
+  recipientSolAddr: string,
+  amount: bigint
 ): Promise<string> {
-    console.log(`[solana-minter] release_tokens → ${recipientSolAddr}, amount=${amount}`);
+  console.log(`[solana-minter] release_tokens → ${recipientSolAddr} amount=${amount}`);
 
-    const provider = makeProvider();
-    const programId = new PublicKey(SIMPLE_TOKEN_PROGRAM);
-    const program = new Program(simpleTokenIdl, programId, provider);
+  const provider  = makeProvider();
+  const pid       = new PublicKey(SIMPLE_TOKEN_PROGRAM);
+  const program   = new Program(simpleTokenIdl as Idl, pid, provider);
 
-    const mint = deriveSimpleTokenMint(programId);
-    const tokenState = deriveStatePda(programId);
-    const lockVault = deriveLockVault(mint, programId);
-    const [lockAuth, lockAuthBump] = deriveLockVaultAuth(mint, programId);
-    const recipient = new PublicKey(recipientSolAddr);
-    const recipientAta = await getAssociatedTokenAddress(mint, recipient);
+  const mint             = mintPda(pid);
+  const tokenState       = statePda(pid);
+  const lockVault        = lockVaultPda(mint, pid);
+  const [lockAuth, bump] = lockAuthPda(mint, pid);
+  const recipient        = new PublicKey(recipientSolAddr);
+  const recipientAta     = await getAssociatedTokenAddress(mint, recipient);
 
-    const sig = await program.methods
-        .releaseTokens(new BN(amount.toString()), lockAuthBump)
-        .accounts({
-            tokenState,
-            mint,
-            lockVault,
-            lockVaultAuthority: lockAuth,
-            recipientTokenAccount: recipientAta,
-            recipient,
-            bridgeAdmin: provider.wallet.publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-            systemProgram: SystemProgram.programId,
-        })
-        .rpc();
+  const sig = await program.methods
+    .releaseTokens(new BN(amount.toString()), bump)
+    .accounts({
+      tokenState,
+      mint,
+      lockVault,
+      lockVaultAuthority:    lockAuth,
+      recipientTokenAccount: recipientAta,
+      recipient,
+      bridgeAdmin:           provider.wallet.publicKey,
+      tokenProgram:           TOKEN_PROGRAM_ID,
+      associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      systemProgram:          SystemProgram.programId,
+    })
+    .rpc();
 
-    console.log(`[solana-minter] release_tokens OK: ${sig}`);
-    return sig;
+  console.log(`[solana-minter] release_tokens OK sig=${sig}`);
+  return sig;
 }
