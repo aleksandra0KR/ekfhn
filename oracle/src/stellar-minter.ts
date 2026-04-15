@@ -9,8 +9,6 @@ import {
 
 const server = new StellarSdk.SorobanRpc.Server(STELLAR_RPC);
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
 async function waitForTx(hash: string): Promise<void> {
   for (let i = 0; i < 60; i++) {
     try {
@@ -23,15 +21,12 @@ async function waitForTx(hash: string): Promise<void> {
       if (status === StellarSdk.SorobanRpc.Api.GetTransactionStatus.FAILED || status === "FAILED") {
         throw new Error(`Stellar tx FAILED: ${hash}`);
       }
-      // NOT_FOUND — ещё не в блоке, ждём
     } catch (e: any) {
-      // XDR parse issue — транзакция скорее всего успешна
       if (e.message?.includes("Bad union switch") || e.message?.includes("XDR")) {
         console.log(`[stellar-minter] tx ${hash} - XDR parse issue, assuming success`);
         console.log(`[stellar-minter] check: https://stellar.expert/explorer/testnet/tx/${hash}`);
         return;
       }
-      // Транзакция ещё не найдена — ждём
       if (e.message?.includes("not found") || e.code === 404 || e.message?.includes("404")) {
         await new Promise((r) => setTimeout(r, 3000));
         continue;
@@ -44,9 +39,9 @@ async function waitForTx(hash: string): Promise<void> {
 }
 
 async function invokeContract(
-  contractId: string,
-  method: string,
-  args: StellarSdk.xdr.ScVal[]
+    contractId: string,
+    method: string,
+    args: StellarSdk.xdr.ScVal[]
 ): Promise<string> {
   const keypair  = loadStellarKeypair();
   const account  = await server.getAccount(keypair.publicKey());
@@ -56,9 +51,9 @@ async function invokeContract(
     fee:               StellarSdk.BASE_FEE,
     networkPassphrase: STELLAR_NETWORK,
   })
-    .addOperation(contract.call(method, ...args))
-    .setTimeout(30)
-    .build();
+      .addOperation(contract.call(method, ...args))
+      .setTimeout(30)
+      .build();
 
   const prepared = await server.prepareTransaction(tx);
   prepared.sign(keypair);
@@ -73,12 +68,6 @@ async function invokeContract(
   return sent.hash;
 }
 
-// ─── Публичные функции ────────────────────────────────────────────────────────
-
-/**
- * Минтит wSPL на Stellar.
- * Вызывается когда оракул поймал TokensLocked на Solana simple_token.
- */
 export async function mintWrappedSpl(stellarAddr: string, amount: bigint): Promise<string> {
   console.log(`[stellar-minter] bridge_mint wSPL → ${stellarAddr} amount=${amount}`);
   const hash = await invokeContract(WRAPPED_SPL_CONTRACT, "bridge_mint", [
@@ -89,10 +78,6 @@ export async function mintWrappedSpl(stellarAddr: string, amount: bigint): Promi
   return hash;
 }
 
-/**
- * Разблокирует NT на Stellar.
- * Вызывается когда оракул поймал WrappedBurned на Solana wrapped_naboka.
- */
 export async function releaseNaboka(stellarAddr: string, amount: bigint): Promise<string> {
   console.log(`[stellar-minter] release NT → ${stellarAddr} amount=${amount}`);
   const hash = await invokeContract(NABOKA_TOKEN_CONTRACT, "release", [

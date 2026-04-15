@@ -134,7 +134,6 @@ impl WrappedSplContract {
         e.storage().instance().set(&DataKey::BridgeAdmin, &bridge_admin);
     }
 
-    /// Оракул минтит wSPL когда SPL заблокированы на Solana
     pub fn bridge_mint(e: Env, to: Address, amount: i128) {
         get_bridge_admin(&e).require_auth();
         check_positive(amount);
@@ -144,8 +143,6 @@ impl WrappedSplContract {
         TokenUtils::new(&e).events().mint(get_bridge_admin(&e), to, amount);
     }
 
-    /// Пользователь сжигает wSPL → оракул вызывает release_tokens на Solana
-    /// target_sol_addr — Solana pubkey (Base58, 44 символа)
     pub fn bridge_burn(e: Env, from: Address, amount: i128, target_sol_addr: String) {
         from.require_auth();
         check_positive(amount);
@@ -161,9 +158,6 @@ impl WrappedSplContract {
         TokenUtils::new(&e).events().burn(from, amount);
     }
 }
-
-// ── SEP-41 token::Interface ───────────────────────────────────────────────────
-// Без этого блока другие контракты и кошельки не смогут работать с wSPL
 
 #[contractimpl]
 impl token::Interface for WrappedSplContract {

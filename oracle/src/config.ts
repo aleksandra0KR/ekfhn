@@ -11,9 +11,8 @@ export const NABOKA_TOKEN_CONTRACT  = process.env.NABOKA_TOKEN_CONTRACT  ?? "";
 export const WRAPPED_SPL_CONTRACT   = process.env.WRAPPED_SPL_CONTRACT   ?? "";
 
 export const SOLANA_RPC             = process.env.SOLANA_RPC             ?? "https://api.devnet.solana.com";
-// ← ИСПРАВЛЕНО: новый program id после передеплоя с bridge функциями
-export const SIMPLE_TOKEN_PROGRAM   = process.env.SIMPLE_TOKEN_PROGRAM   ?? "3KR3tcomt4fC2DsoYfHdgPUgqsBqp7Y3HyK8fi4JGYrD";
-export const WRAPPED_NABOKA_PROGRAM = process.env.WRAPPED_NABOKA_PROGRAM ?? "57nEmTCYTWcYAUDkRKGrWDRCLMkWt4MpL6rWZP4GTzDC";
+export const SIMPLE_TOKEN_PROGRAM   = process.env.SIMPLE_TOKEN_PROGRAM   ?? "";
+export const WRAPPED_NABOKA_PROGRAM = process.env.WRAPPED_NABOKA_PROGRAM ?? "";
 
 export function loadStellarKeypair(): StellarSdk.Keypair {
   const secret = process.env.ORACLE_STELLAR_SECRET;

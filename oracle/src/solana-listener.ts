@@ -4,29 +4,18 @@ import { SOLANA_RPC, SIMPLE_TOKEN_PROGRAM, WRAPPED_NABOKA_PROGRAM } from "./conf
 export interface SolanaLockEvent     { user: string; amount: bigint; targetStellarAddr: string; }
 export interface SolanaWrapBurnEvent { user: string; amount: bigint; targetStellarAddr: string; }
 
-// ─── Ручной парсинг событий из "Program data:" строк ─────────────────────────
-// Anchor кодирует события как: 8 байт discriminator + borsh данные
-// В логах: "Program data: <base64>"
-
 function parseTokensLocked(base64: string): SolanaLockEvent | null {
   try {
     const buf    = Buffer.from(base64, "base64");
-    let offset   = 8; // пропускаем discriminator
-
-    // user: Pubkey (32 байта)
+    let offset   = 8;
     const { PublicKey: PK } = require("@solana/web3.js");
     const user = new PK(buf.slice(offset, offset + 32)).toString();
     offset += 32;
-
-    // amount: u64 (8 байт, little-endian)
     const amount = buf.readBigUInt64LE(offset);
     offset += 8;
-
-    // targetStellarAddr: String (4 байта длина + данные)
     const strLen = buf.readUInt32LE(offset);
     offset += 4;
     const targetStellarAddr = buf.slice(offset, offset + strLen).toString("utf8");
-
     return { user, amount, targetStellarAddr };
   } catch {
     return null;
@@ -37,35 +26,29 @@ function parseWrappedBurned(base64: string): SolanaWrapBurnEvent | null {
   try {
     const buf    = Buffer.from(base64, "base64");
     let offset   = 8;
-
     const { PublicKey: PK } = require("@solana/web3.js");
     const user = new PK(buf.slice(offset, offset + 32)).toString();
     offset += 32;
-
     const amount = buf.readBigUInt64LE(offset);
     offset += 8;
-
     const strLen = buf.readUInt32LE(offset);
     offset += 4;
     const targetStellarAddr = buf.slice(offset, offset + strLen).toString("utf8");
-
     return { user, amount, targetStellarAddr };
   } catch {
     return null;
   }
 }
 
-// ─── Polling ──────────────────────────────────────────────────────────────────
-
 async function pollProgram<T>(
-  connection: Connection,
-  programId:  PublicKey,
-  seen:       Set<string>,
-  parseLog:   (dataB64: string) => T | null,
-  cb:         (parsed: T) => Promise<void>
+    connection: Connection,
+    programId:  PublicKey,
+    seen:       Set<string>,
+    parseLog:   (dataB64: string) => T | null,
+    cb:         (parsed: T) => Promise<void>
 ): Promise<void> {
   const sigs = await connection.getSignaturesForAddress(
-    programId, { limit: 10 }, "confirmed"
+      programId, { limit: 10 }, "confirmed"
   );
 
   for (const sigInfo of sigs.reverse()) {
@@ -94,11 +77,9 @@ async function pollProgram<T>(
   }
 }
 
-// ─── Публичные слушатели ──────────────────────────────────────────────────────
-
 export function listenSolanaLock(
-  onLock: (e: SolanaLockEvent) => Promise<void>,
-  intervalMs = 8000
+    onLock: (e: SolanaLockEvent) => Promise<void>,
+    intervalMs = 8000
 ): void {
   if (!SIMPLE_TOKEN_PROGRAM) {
     console.warn("[solana-listener] SIMPLE_TOKEN_PROGRAM не задан"); return;
@@ -123,8 +104,8 @@ export function listenSolanaLock(
 }
 
 export function listenSolanaWrapBurn(
-  onBurn: (e: SolanaWrapBurnEvent) => Promise<void>,
-  intervalMs = 8000
+    onBurn: (e: SolanaWrapBurnEvent) => Promise<void>,
+    intervalMs = 8000
 ): void {
   if (!WRAPPED_NABOKA_PROGRAM) {
     console.warn("[solana-listener] WRAPPED_NABOKA_PROGRAM не задан"); return;

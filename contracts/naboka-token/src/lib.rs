@@ -14,9 +14,9 @@ const BALANCE_THRESHOLD: u32 = 29 * 17280;
 #[contracttype]
 pub enum DataKey {
     Admin,
-    BridgeAdmin,      // ← новый: адрес оракула
+    BridgeAdmin,     
     TotalSupply,
-    LockedSupply,     // ← новый: сколько сейчас заблокировано в мосту
+    LockedSupply,    
     Balance(Address),
     Allowance(AllowanceKey),
 }
@@ -150,8 +150,6 @@ impl NabokaContract {
         e.storage().instance().set(&DataKey::BridgeAdmin, &bridge_admin);
     }
 
-    // Пользователь блокирует NT → они уходят в locked pool
-    // target_sol_addr — строка вида "7xKX...abc" (Solana pubkey)
     pub fn lock(e: Env, from: Address, amount: i128, target_sol_addr: String) {
         from.require_auth();
         check_positive(amount);
@@ -162,20 +160,15 @@ impl NabokaContract {
             panic!("insufficient balance");
         }
 
-        // Убираем с баланса пользователя
         set_balance(&e, &from, b - amount);
-
-        // Добавляем в locked pool (НЕ сжигаем — чтобы можно было вернуть)
         set_locked_supply(&e, get_locked_supply(&e) + amount);
 
-        // Эмитим событие — оракул его поймает
         e.events().publish(
             (soroban_sdk::symbol_short!("lock"),),
             (from.clone(), amount, target_sol_addr),
         );
     }
 
-    // Оракул вызывает release когда пользователь вернул wNT с Solana
     pub fn release(e: Env, to: Address, amount: i128) {
         get_bridge_admin(&e).require_auth();
         check_positive(amount);
@@ -195,7 +188,6 @@ impl NabokaContract {
         );
     }
 
-    // Геттер для UI
     pub fn locked_supply(e: Env) -> i128 {
         bump(&e);
         get_locked_supply(&e)
@@ -280,4 +272,3 @@ impl token::Interface for NabokaContract {
 }
 
 mod test;
-

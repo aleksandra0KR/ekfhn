@@ -3,8 +3,6 @@ import { listenSolanaLock, listenSolanaWrapBurn } from "./solana-listener";
 import { mintWrappedNaboka, releaseSpl }           from "./solana-minter";
 import { mintWrappedSpl, releaseNaboka }           from "./stellar-minter";
 
-// Очередь для Stellar транзакций — предотвращает txBadSeq
-// (Stellar использует sequence number, параллельные tx конфликтуют)
 let stellarQueue = Promise.resolve();
 
 function enqueueStella(fn: () => Promise<void>): void {
@@ -18,8 +16,6 @@ async function main(): Promise<void> {
   console.log("        Naboka Bridge Oracle  v1.0.0");
   console.log("═══════════════════════════════════════════════");
 
-  // ── Solana → Stellar ──────────────────────────────────────────────────────
-  // lock_tokens() на SimpleToken → bridge_mint wSPL на Stellar
   listenSolanaLock(async (e) => {
     console.log(`\n[SOL→ST] LOCK  user=${e.user}  amount=${e.amount}  to=${e.targetStellarAddr}`);
     enqueueStella(async () => {
@@ -28,7 +24,6 @@ async function main(): Promise<void> {
     });
   });
 
-  // burn_wrapped() на WrappedNaboka → release NT на Stellar
   listenSolanaWrapBurn(async (e) => {
     console.log(`\n[SOL→ST] BURN_WRAP  user=${e.user}  amount=${e.amount}  to=${e.targetStellarAddr}`);
     enqueueStella(async () => {
@@ -37,8 +32,6 @@ async function main(): Promise<void> {
     });
   });
 
-  // ── Stellar → Solana ──────────────────────────────────────────────────────
-  // lock() на NabokaToken → mint wNT на Solana
   listenNabokaLock(async (e) => {
     console.log(`\n[ST→SOL] LOCK  from=${e.from}  amount=${e.amount}  to=${e.targetSolAddr}`);
     try {
@@ -46,10 +39,14 @@ async function main(): Promise<void> {
       console.log(`[ST→SOL] ✓ wNT minted  sig=${sig}`);
     } catch (err: any) {
       console.error(`[ST→SOL] ✗ mintWrappedNaboka failed:`, err?.message ?? err);
+      if (err.logs) console.error("Transaction logs:", err.logs);
+      if (err.getLogs) {
+        const logs = await err.getLogs();
+        console.error("Logs from getLogs:", logs);
+      }
     }
   });
 
-  // bridge_burn() на WrappedSPL → release SPL на Solana
   listenWrappedSplBurn(async (e) => {
     console.log(`\n[ST→SOL] BBURN  from=${e.from}  amount=${e.amount}  to=${e.targetSolAddr}`);
     try {
