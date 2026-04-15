@@ -123,3 +123,8 @@ stellar contract invoke \
 balance \
 --id GBJ4QI5VW32TBVCP7EEYIWETWLVSGFVXGC6MQD4VRK27ATNQQUOB6XZN
 ```
+
+
+![67](https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExcmRyNW1jbGI2Mng5ZHZibDBkbmR6ZDNrZ2tjNTJyZ2xjYTB1M2w0YyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/da543xrbipZPceuf8a/giphy.gif)
+
+
